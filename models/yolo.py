@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 if platform.system() != "Windows":
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-from .extra_module import *
+from models.extra_module import *
 from models.common import (
     C3,
     C3SPP,
@@ -407,6 +407,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             SPPCSPC_group,
             SimCSPSPPF,
             C2f,
+            
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
@@ -418,6 +419,12 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                 n = 1
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
+        
+        elif m in [DoubleAttention,BAMBlock,CBAM, SpatialAttention, ChannelAttention,EfficientChannelAttention,CoordAtt,CoTAttention,EffectiveSEModule,EMA,GAM_Attention,GlobalContext,GatherExcite,LSKblock,MHSA,MLCA,MobileViTAttention,ParNetAttention,S2Attention,SequentialPolarizedSelfAttention,ShuffleAttention,SKAttention]:
+            args = [ch[f]]
+        #直接输入参数args
+        elif m in [SpatialGroupEnhance,SimAM,TripletAttention]:
+            args = args
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
         # TODO: channel, gw, gd
