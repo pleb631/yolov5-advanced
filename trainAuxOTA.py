@@ -46,7 +46,7 @@ ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 import val as validate  # for end-of-epoch mAP
 from models.experimental import attempt_load
-from models.yolo import Model
+from models.yolo_AuxOTA import Model
 from utils.autoanchor import check_anchors
 from utils.autobatch import check_train_batch_size
 from utils.callbacks import Callbacks
@@ -81,7 +81,7 @@ from utils.general import (
 from utils.loggers import LOGGERS, Loggers
 from utils.loggers.comet.comet_utils import check_comet_resume
 from utils.loss import ComputeLoss
-from utils.loss import ComputeLossOTA
+from utils.loss_AuxOTA import ComputeLossAuxOTA
 from utils.metrics import fitness
 from utils.plots import plot_evolve
 from utils.torch_utils import (
@@ -319,8 +319,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     scaler = torch.cuda.amp.GradScaler(enabled=amp)
     stopper, stop = EarlyStopping(patience=opt.patience), False
     compute_loss = ComputeLoss(model)  # init loss class   
-    if opt.OTALoss:
-        compute_OTAloss = ComputeLossOTA(model)
+    compute_AuxOTAloss = ComputeLossAuxOTA(model)
     callbacks.run("on_train_start")
     LOGGER.info(
         f'Image sizes {imgsz} train, {imgsz} val\n'
@@ -377,10 +376,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             # Forward
             with torch.cuda.amp.autocast(amp):
                 pred = model(imgs)  # forward
-                if opt.OTALoss:
-                    loss, loss_items = compute_OTAloss(pred, targets.to(device),imgs)  # loss scaled by batch_size
-                else:
-                    loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
+                loss, loss_items = compute_AuxOTAloss(pred, targets.to(device),imgs)  # loss scaled by batch_size
                 
 
                 if RANK != -1:
@@ -514,13 +510,13 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
 
 def parse_opt(known=False):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--weights", type=str, default=ROOT / "yolov5s.pt", help="initial weights path")
+    parser.add_argument("--weights", type=str, default=ROOT / "yolov5n.pt", help="initial weights path")
     parser.add_argument("--cfg", type=str, default="", help="model.yaml path")
     parser.add_argument("--data", type=str, default=ROOT / "data/coco128.yaml", help="dataset.yaml path")
     parser.add_argument("--hyp", type=str, default=ROOT / "data/hyps/hyp.scratch-low.yaml", help="hyperparameters path")
     parser.add_argument("--epochs", type=int, default=100, help="total training epochs")
-    parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs, -1 for autobatch")
-    parser.add_argument("--imgsz", "--img", "--img-size", type=int, default=640, help="train, val image size (pixels)")
+    parser.add_argument("--batch-size", type=int, default=8, help="total batch size for all GPUs, -1 for autobatch")
+    parser.add_argument("--imgsz", "--img", "--img-size", type=int, default=320, help="train, val image size (pixels)")
     parser.add_argument("--rect", action="store_true", help="rectangular training")
     parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume most recent training")
     parser.add_argument("--nosave", action="store_true", help="only save final checkpoint")
@@ -546,7 +542,6 @@ def parse_opt(known=False):
     parser.add_argument("--exist-ok", action="store_true", help="existing project/name ok, do not increment")
     parser.add_argument("--quad", action="store_true", help="quad dataloader")
     parser.add_argument("--cos-lr", action="store_true", help="cosine LR scheduler")
-    parser.add_argument("--OTALoss", action="store_true", help="Use Optimal Transport Assignment loss")
     parser.add_argument("--label-smoothing", type=float, default=0.0, help="Label smoothing epsilon")
     parser.add_argument("--patience", type=int, default=100, help="EarlyStopping patience (epochs without improvement)")
     parser.add_argument("--freeze", nargs="+", type=int, default=[0], help="Freeze layers: backbone=10, first3=0 1 2")
@@ -691,7 +686,10 @@ def main(opt, callbacks=Callbacks()):
             )
 
         # Delete the items in meta dictionary whose first value is False
-        del_ = [item for item, value_ in meta.items() if value_[0] is False]
+        del_ = []
+        for item in meta.keys():
+            if meta[item][0] is False:
+                del_.append(item)
         hyp_GA = hyp.copy()  # Make a copy of hyp dictionary
         for item in del_:
             del meta[item]  # Remove the item from meta dictionary
@@ -702,7 +700,9 @@ def main(opt, callbacks=Callbacks()):
         upper_limit = np.array([meta[k][2] for k in hyp_GA.keys()])
 
         # Create gene_ranges list to hold the range of values for each gene in the population
-        gene_ranges = [(lower_limit[i], upper_limit[i]) for i in range(len(upper_limit))]
+        gene_ranges = []
+        for i in range(len(upper_limit)):
+            gene_ranges.append((lower_limit[i], upper_limit[i]))
 
         # Initialize the population with initial_values or random values
         initial_values = []
@@ -727,11 +727,14 @@ def main(opt, callbacks=Callbacks()):
 
         # Generate random values within the search space for the rest of the population
         if initial_values is None:
-            population = [generate_individual(gene_ranges, len(hyp_GA)) for _ in range(pop_size)]
-        elif pop_size > 1:
-            population = [generate_individual(gene_ranges, len(hyp_GA)) for _ in range(pop_size - len(initial_values))]
-            for initial_value in initial_values:
-                population = [initial_value] + population
+            population = [generate_individual(gene_ranges, len(hyp_GA)) for i in range(pop_size)]
+        else:
+            if pop_size > 1:
+                population = [
+                    generate_individual(gene_ranges, len(hyp_GA)) for i in range(pop_size - len(initial_values))
+                ]
+                for initial_value in initial_values:
+                    population = [initial_value] + population
 
         # Run the genetic algorithm for a fixed number of generations
         list_keys = list(hyp_GA.keys())
@@ -739,8 +742,10 @@ def main(opt, callbacks=Callbacks()):
             if generation >= 1:
                 save_dict = {}
                 for i in range(len(population)):
-                    little_dict = {list_keys[j]: float(population[i][j]) for j in range(len(population[i]))}
-                    save_dict[f"gen{str(generation)}number{str(i)}"] = little_dict
+                    little_dict = {}
+                    for j in range(len(population[i])):
+                        little_dict[list_keys[j]] = float(population[i][j])
+                    save_dict["gen" + str(generation) + "number" + str(i)] = little_dict
 
                 with open(save_dir / "evolve_population.yaml", "w") as outfile:
                     yaml.dump(save_dict, outfile, default_flow_style=False)
@@ -770,7 +775,7 @@ def main(opt, callbacks=Callbacks()):
 
             # Select the fittest individuals for reproduction using adaptive tournament selection
             selected_indices = []
-            for _ in range(pop_size - elite_size):
+            for i in range(pop_size - elite_size):
                 # Adaptive tournament size
                 tournament_size = max(
                     max(2, tournament_size_min),
@@ -787,7 +792,7 @@ def main(opt, callbacks=Callbacks()):
             selected_indices.extend(elite_indices)
             # Create the next generation through crossover and mutation
             next_generation = []
-            for _ in range(pop_size):
+            for i in range(pop_size):
                 parent1_index = selected_indices[random.randint(0, pop_size - 1)]
                 parent2_index = selected_indices[random.randint(0, pop_size - 1)]
                 # Adaptive crossover rate

@@ -44,10 +44,9 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-import val as validate  # for end-of-epoch mAP
+import yolov8.val as validate  # for end-of-epoch mAP
 from models.experimental import attempt_load
-from models.yolo import Model
-from utils.autoanchor import check_anchors
+from yolov8.yolo import Model
 from utils.autobatch import check_train_batch_size
 from utils.callbacks import Callbacks
 from utils.dataloaders import create_dataloader
@@ -80,8 +79,8 @@ from utils.general import (
 )
 from utils.loggers import LOGGERS, Loggers
 from utils.loggers.comet.comet_utils import check_comet_resume
-from utils.loss import ComputeLoss
-from utils.loss import ComputeLossOTA
+from yolov8.loss import v8DetectionLoss as ComputeLoss
+
 from utils.metrics import fitness
 from utils.plots import plot_evolve
 from utils.torch_utils import (
@@ -181,14 +180,14 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         with torch_distributed_zero_first(LOCAL_RANK):
             weights = attempt_download(weights)  # download if not found locally
         ckpt = torch.load(weights, map_location="cpu")  # load checkpoint to CPU to avoid CUDA memory leak
-        model = Model(cfg or ckpt["model"].yaml, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
-        exclude = ["anchor"] if (cfg or hyp.get("anchors")) and not resume else []  # exclude keys
+        model = Model(cfg or ckpt["model"].yaml, ch=3, nc=nc).to(device)  # create
+        exclude = []  # exclude keys
         csd = ckpt["model"].float().state_dict()  # checkpoint state_dict as FP32
         csd = intersect_dicts(csd, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(csd, strict=False)  # load
         LOGGER.info(f"Transferred {len(csd)}/{len(model.state_dict())} items from {weights}")  # report
     else:
-        model = Model(cfg, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
+        model = Model(cfg, ch=3, nc=nc).to(device)  # create
     amp = check_amp(model)  # check AMP
 
     # Freeze
@@ -286,8 +285,6 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         )[0]
 
         if not resume:
-            if not opt.noautoanchor:
-                check_anchors(dataset, model=model, thr=hyp["anchor_t"], imgsz=imgsz)  # run AutoAnchor
             model.half().float()  # pre-reduce anchor precision
 
         callbacks.run("on_pretrain_routine_end", labels, names)
@@ -319,8 +316,6 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     scaler = torch.cuda.amp.GradScaler(enabled=amp)
     stopper, stop = EarlyStopping(patience=opt.patience), False
     compute_loss = ComputeLoss(model)  # init loss class   
-    if opt.OTALoss:
-        compute_OTAloss = ComputeLossOTA(model)
     callbacks.run("on_train_start")
     LOGGER.info(
         f'Image sizes {imgsz} train, {imgsz} val\n'
@@ -346,7 +341,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         if RANK != -1:
             train_loader.sampler.set_epoch(epoch)
         pbar = enumerate(train_loader)
-        LOGGER.info(("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "box_loss", "obj_loss", "cls_loss", "Instances", "Size"))
+        LOGGER.info(("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "box_loss", "cls_loss", "dfl_loss", "Instances", "Size"))
         if RANK in {-1, 0}:
             pbar = tqdm(pbar, total=nb, bar_format=TQDM_BAR_FORMAT)  # progress bar
         optimizer.zero_grad()
@@ -377,10 +372,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             # Forward
             with torch.cuda.amp.autocast(amp):
                 pred = model(imgs)  # forward
-                if opt.OTALoss:
-                    loss, loss_items = compute_OTAloss(pred, targets.to(device),imgs)  # loss scaled by batch_size
-                else:
-                    loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
+                loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
                 
 
                 if RANK != -1:
@@ -514,13 +506,13 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
 
 def parse_opt(known=False):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--weights", type=str, default=ROOT / "yolov5s.pt", help="initial weights path")
+    parser.add_argument("--weights", type=str, default=ROOT / "yolov5n.pt", help="initial weights path")
     parser.add_argument("--cfg", type=str, default="", help="model.yaml path")
     parser.add_argument("--data", type=str, default=ROOT / "data/coco128.yaml", help="dataset.yaml path")
     parser.add_argument("--hyp", type=str, default=ROOT / "data/hyps/hyp.scratch-low.yaml", help="hyperparameters path")
     parser.add_argument("--epochs", type=int, default=100, help="total training epochs")
-    parser.add_argument("--batch-size", type=int, default=16, help="total batch size for all GPUs, -1 for autobatch")
-    parser.add_argument("--imgsz", "--img", "--img-size", type=int, default=640, help="train, val image size (pixels)")
+    parser.add_argument("--batch-size", type=int, default=8, help="total batch size for all GPUs, -1 for autobatch")
+    parser.add_argument("--imgsz", "--img", "--img-size", type=int, default=320, help="train, val image size (pixels)")
     parser.add_argument("--rect", action="store_true", help="rectangular training")
     parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume most recent training")
     parser.add_argument("--nosave", action="store_true", help="only save final checkpoint")
@@ -642,7 +634,6 @@ def main(opt, callbacks=Callbacks()):
             "obj_pw": (False, 0.5, 2.0),  # obj BCELoss positive_weight
             "iou_t": (False, 0.1, 0.7),  # IoU training threshold
             "anchor_t": (False, 2.0, 8.0),  # anchor-multiple threshold
-            "anchors": (False, 2.0, 10.0),  # anchors per output grid (0 to ignore)
             "fl_gamma": (False, 0.0, 2.0),  # focal loss gamma (efficientDet default gamma=1.5)
             "hsv_h": (True, 0.0, 0.1),  # image HSV-Hue augmentation (fraction)
             "hsv_s": (True, 0.0, 0.9),  # image HSV-Saturation augmentation (fraction)
@@ -672,10 +663,7 @@ def main(opt, callbacks=Callbacks()):
 
         with open(opt.hyp, errors="ignore") as f:
             hyp = yaml.safe_load(f)  # load hyps dict
-            if "anchors" not in hyp:  # anchors commented in hyp.yaml
-                hyp["anchors"] = 3
-        if opt.noautoanchor:
-            del hyp["anchors"], meta["anchors"]
+
         opt.noval, opt.nosave, save_dir = True, True, Path(opt.save_dir)  # only val/save final epoch
         # ei = [isinstance(x, (int, float)) for x in hyp.values()]  # evolvable indices
         evolve_yaml, evolve_csv = save_dir / "hyp_evolve.yaml", save_dir / "evolve.csv"
@@ -762,8 +750,8 @@ def main(opt, callbacks=Callbacks()):
                     "metrics/mAP_0.5",
                     "metrics/mAP_0.5:0.95",
                     "val/box_loss",
-                    "val/obj_loss",
                     "val/cls_loss",
+                    "val/dfl_loss",
                 )
                 print_mutation(keys, results, hyp.copy(), save_dir, opt.bucket)
                 fitness_scores.append(results[2])
