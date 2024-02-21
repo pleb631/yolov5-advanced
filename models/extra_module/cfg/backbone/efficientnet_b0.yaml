@@ -1,5 +1,8 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# efficientnet_b0 summary: 443 layers, 6347065 parameters, 6347065 gradients, 10.2 GFLOPs
 
+# Fusing layers... 
+# efficientnet_b0 summary: 417 layers, 6344057 parameters, 6344057 gradients, 10.2 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

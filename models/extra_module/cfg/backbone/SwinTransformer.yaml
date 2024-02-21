@@ -1,5 +1,8 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
+# SwinTransformer summary: 313 layers, 29076855 parameters, 29076855 gradients, 398.8 GFLOPs
 
+# Fusing layers... 
+# SwinTransformer summary: 287 layers, 29074103 parameters, 29074103 gradients, 398.8 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
@@ -12,8 +15,8 @@ anchors:
 # YOLOv5 v6.0 backbone
 backbone:
   # [from, number, module, args]
-  [[-1, 1, SwinTransformer, []],  # 0,1,2,3,4
-   [-1, 1, SPPF, [3072, 5]],  # 5
+  [[-1, 1, SwinTransformer_Tiny, []],  # 0,1,2,3,4
+   [-1, 1, SPPF, [1024, 5]],  # 5
   ]
 
 # YOLOv5 v6.0 head

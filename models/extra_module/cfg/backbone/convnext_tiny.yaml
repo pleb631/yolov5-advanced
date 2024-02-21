@@ -1,5 +1,8 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# convnext_tiny summary: 308 layers, 29310175 parameters, 29310175 gradients, 75.1 GFLOPs
 
+# Fusing layers...
+# convnext_tiny summary: 282 layers, 29307423 parameters, 29307423 gradients, 75.1 GFLOPs
 # Parameters
 nc: 2  # number of classes
 depth_multiple: 0.33  # model depth multiple

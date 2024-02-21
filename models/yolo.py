@@ -375,7 +375,10 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         d["backbone"] + d["head"]
     ):  # from, number, module, args
         t = m
-        m = eval(m) if isinstance(m, str) else m  # eval strings
+        try:
+            m = eval(m) if isinstance(m, str) else m  # eval strings
+        except:
+            pass
         for j, a in enumerate(args):
             with contextlib.suppress(NameError):
                 args[j] = eval(a) if isinstance(a, str) else a  # eval strings
@@ -420,8 +423,8 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
         
-        elif m in [DoubleAttention,BAMBlock,CBAM, SpatialAttention, ChannelAttention,EfficientChannelAttention,CoordAtt,CoTAttention,EffectiveSEModule,EMA,GAM_Attention,GlobalContext,GatherExcite,LSKblock,MHSA,MLCA,MobileViTAttention,ParNetAttention,S2Attention,SequentialPolarizedSelfAttention,ShuffleAttention,SKAttention]:
-            args = [ch[f]]
+        elif m in [DoubleAttention,BAMBlock,CBAM, SpatialAttention, ChannelAttention,EfficientChannelAttention,CoordAtt,CoTAttention,EffectiveSEModule,EMA,GAM_Attention,GlobalContext,GatherExcite,LSKblock,MHSA,MLCA,MobileViTAttention,ParNetAttention,S2Attention,SequentialPolarizedSelfAttention,ShuffleAttention,SKAttention,FocalModulation]:
+            args = [ch[f],*args]
         #直接输入参数args
         elif m in [SpatialGroupEnhance,SimAM,TripletAttention]:
             args = args
@@ -438,7 +441,25 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             c2 = ch[f] * args[0] ** 2
         elif m is Expand:
             c2 = ch[f] // args[0] ** 2
+        
+        elif m in (HGStem,Rep_HGBlock):
+            c1, cm, c2 = ch[f], args[0], args[1]
+            if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
+                c2 = make_divisible(c2*gw, ch_mul)
+                cm = make_divisible(cm*gw, ch_mul)
+            args = [c1, cm, c2, *args[2:]]
+            if m in (Rep_HGBlock,):
+                args.insert(4, n)  # number of repeats
+                n = 1
 
+        elif isinstance(m, str):
+            import timm
+            t = m
+            if len(args) == 2:        
+                m = timm.create_model(m, pretrained=args[0], pretrained_cfg_overlay={'file':args[1]}, features_only=True)
+            elif len(args) == 1:
+                m = timm.create_model(m, pretrained=args[0], features_only=True)
+            c2 = m.feature_info.channels()
         elif m in (
             MobileNetV3s_1,
             MobileNetV3s_2,
@@ -449,15 +470,6 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             RegNety400_1,
             RegNety400_2,
             RegNety400_3,
-            resnet18_1,
-            resnet18_2,
-            resnet18_3,
-            resnet34_1,
-            resnet34_2,
-            resnet34_3,
-            resnet50_1,
-            resnet50_2,
-            resnet50_3,
             efficientnet_v2_s_1,
             efficientnet_v2_s_2,
             efficientnet_v2_s_3,
@@ -467,7 +479,9 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             mobilenet_v2_1,
             mobilenet_v2_2,
             mobilenet_v2_3,
-            wide_resnet50_2_1,
+            convnext_tiny_1,
+            convnext_tiny_2,
+            convnext_tiny_3
         ):
             c2 = args[0]
         elif m in [
@@ -483,8 +497,9 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             unireplknet_a,
             nextvit_small,
             vanillanet_10,
-            SwinTransformer,
+            SwinTransformer_Tiny,
             inceptionnext_tiny,
+            CSWin_tiny,
         ]:
             m = m(*args)
             c2 = m.channel

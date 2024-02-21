@@ -1,5 +1,8 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# mobilenet_v2 summary: 320 layers, 4455295 parameters, 4455295 gradients, 7.9 GFLOPs
 
+# Fusing layers... 
+# mobilenet_v2 summary: 294 layers, 4452287 parameters, 4452287 gradients, 7.9 GFLOPs
 # Parameters
 nc: 2  # number of classes
 depth_multiple: 0.33  # model depth multiple

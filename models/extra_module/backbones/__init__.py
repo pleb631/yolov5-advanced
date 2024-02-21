@@ -12,3 +12,4 @@ from .unireplknet import *
 from .inceptionnext import *
 from .VanillaNet import *
 from .SwinTransformer import *
+from .CSwomTramsformer import *

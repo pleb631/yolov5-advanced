@@ -1,5 +1,8 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
+# lsknet_t summary: 413 layers, 4984683 parameters, 4984683 gradients, 16.5 GFLOPs
 
+# Fusing layers... 
+# lsknet_t summary: 387 layers, 4982187 parameters, 4982187 gradients, 16.5 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

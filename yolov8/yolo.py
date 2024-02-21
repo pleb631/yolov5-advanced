@@ -214,7 +214,7 @@ class DetectionModel(BaseModel):
             # cv2.imwrite(f'img_{si}.jpg', 255 * xi[0].cpu().numpy().transpose((1, 2, 0))[:, :, ::-1])  # save
             yi = self._descale_pred(yi, fi, si, img_size)
             y.append(yi)
-        y = self._clip_augmented(y)  # clip augmented tails
+        #y = self._clip_augmented(y)  # clip augmented tails
         return torch.cat(y, 1), None  # augmented inference, train
 
     def _descale_pred(self, p, flips, scale, img_size):
@@ -348,15 +348,6 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             RegNety400_1,
             RegNety400_2,
             RegNety400_3,
-            resnet18_1,
-            resnet18_2,
-            resnet18_3,
-            resnet34_1,
-            resnet34_2,
-            resnet34_3,
-            resnet50_1,
-            resnet50_2,
-            resnet50_3,
             efficientnet_v2_s_1,
             efficientnet_v2_s_2,
             efficientnet_v2_s_3,
@@ -366,7 +357,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             mobilenet_v2_1,
             mobilenet_v2_2,
             mobilenet_v2_3,
-            wide_resnet50_2_1,
+
         ):
             c2 = args[0]
         elif m in [
