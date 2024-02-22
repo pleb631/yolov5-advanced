@@ -19,7 +19,7 @@ from .SequentialSelfAttention import SequentialPolarizedSelfAttention
 from .ShuffleAttention import ShuffleAttention
 from .SKAttention import SKAttention
 from .LSKA import LSKA
-
+from .SE import SEAttention
 
 #
 from .SGE import SpatialGroupEnhance

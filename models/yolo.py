@@ -198,6 +198,8 @@ class BaseModel(nn.Module):
             elif isinstance(m, RepConv):
                 m.fuse_convs()
                 m.forward = m.forward_fuse
+            elif isinstance(m, DiverseBranchBlock):
+                m.switch_to_deploy()
         self.info()
         return self
 
@@ -388,14 +390,14 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
-            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SPPCSPC_group,SimCSPSPPF,C2f,SPPF_LSKA,SPDConv,HWD,RepBlock,CSPStage,RCSOSA,VoVGSCSP
+            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SPPCSPC_group,SimCSPSPPF,C2f,SPPF_LSKA,SPDConv,HWD,RepBlock,CSPStage,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = make_divisible(c2 * gw, ch_mul)
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x,C2f,CSPStage,RepBlock,RCSOSA,VoVGSCSP}:
+            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x,C2f,CSPStage,RepBlock,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv}:
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is nn.BatchNorm2d:

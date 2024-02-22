@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ["RepLightConv","Rep_HGBlock","HGStem","DFL","C1","C2","C2f","RepC3","ContextGuidedBlock_Down","SPDConv","DySample","CARAFE","HWD","RepBlock","BiFusion","CSPStage","RCSOSA","VoVGSCSP"]
+__all__ = ["RepLightConv","Rep_HGBlock","HGStem","DFL","C1","C2","C2f","RepC3","ContextGuidedBlock_Down","SPDConv","DySample","CARAFE","HWD","RepBlock","BiFusion","CSPStage","RCSOSA"]
 
 class RepLightConv(nn.Module):
     """
@@ -618,38 +618,3 @@ class RCSOSA(nn.Module):
         x3 = self.sr2(x2)
         x = torch.cat((x1, x2, x3), 1)
         return self.conv3(x) if self.se is None else self.se(self.conv3(x))
-
-
-
-### VoVGSCSP
-
-class GSBottleneck(nn.Module):
-    # GS Bottleneck https://github.com/AlanLi1997/slim-neck-by-gsconv
-    def __init__(self, c1, c2, k=3, s=1, e=0.5):
-        super().__init__()
-        c_ = int(c2*e)
-        # for lighting
-        self.conv_lighting = nn.Sequential(
-            GSConv(c1, c_, 1, 1),
-            GSConv(c_, c2, 3, 1, act=False))
-        self.shortcut = Conv(c1, c2, 1, 1, act=False)
-
-    def forward(self, x):
-        return self.conv_lighting(x) + self.shortcut(x)
-    
-    
-class VoVGSCSP(nn.Module):
-    # VoVGSCSP module with GSBottleneck
-    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
-        super().__init__()
-        c_ = int(c2 * e)  # hidden channels
-        self.cv1 = Conv(c1, c_, 1, 1)
-        self.cv2 = Conv(c1, c_, 1, 1)
-        self.gsb = nn.Sequential(*(GSBottleneck(c_, c_, e=1.0) for _ in range(n)))
-        self.res = Conv(c_, c_, 3, 1, act=False)
-        self.cv3 = Conv(2 * c_, c2, 1)
-
-    def forward(self, x):
-        x1 = self.gsb(self.cv1(x))
-        y = self.cv2(x)
-        return self.cv3(torch.cat((y, x1), dim=1))
