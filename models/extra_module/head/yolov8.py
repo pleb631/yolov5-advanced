@@ -7,8 +7,8 @@ import torch
 import torch.nn as nn
 
 from ultralytics.utils.tal import dist2bbox, make_anchors
-from .block import DFL
-from .conv import Conv
+from models.extra_module.block import DFL
+from models.common import Conv
 
 __all__ = "yolov8Detect",
 

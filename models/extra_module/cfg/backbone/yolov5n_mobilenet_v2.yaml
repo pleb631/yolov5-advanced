@@ -1,10 +1,10 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-# efficientnet_v2_s summary: 820 layers, 22419151 parameters, 22419151 gradients, 52.9 GFLOPs
+# mobilenet_v2 summary: 320 layers, 4455295 parameters, 4455295 gradients, 7.9 GFLOPs
 
 # Fusing layers... 
-# efficientnet_v2_s summary: 794 layers, 22416143 parameters, 22416143 gradients, 52.9 GFLOPs
+# mobilenet_v2 summary: 294 layers, 4452287 parameters, 4452287 gradients, 7.9 GFLOPs
 # Parameters
-nc: 2  # number of classes
+nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
 width_multiple: 0.25  # layer channel multiple
 anchors:
@@ -15,9 +15,9 @@ anchors:
 # YOLOv5 v6.0 backbone
 backbone:
   # [from, number, module, args]
-  [[-1, 1, efficientnet_v2_s_1, [64]],  # 0
-   [-1, 1, efficientnet_v2_s_2, [160]],  # 1
-   [-1, 1, efficientnet_v2_s_3, [1280]],  # 2
+  [[-1, 1, mobilenet_v2_1, [32]],  # 0
+   [-1, 1, mobilenet_v2_2, [96]],  # 1
+   [-1, 1, mobilenet_v2_3, [1280]],  # 2
    [-1, 1, SPPF, [1024, 5]],  # 3
   ]
 

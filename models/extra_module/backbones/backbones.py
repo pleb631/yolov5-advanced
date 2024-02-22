@@ -41,39 +41,6 @@ class MobileNetV3s_3(nn.Module):
         return self.model(x)
 
 '''
-模型：efficientnet_b0
-'''
-class efficientnet_b0_1(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_b0()
-        modules = list(model.children())
-        modules = modules[0][:4]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
-    
-class efficientnet_b0_2(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_b0()
-        modules = list(model.children())
-        modules = modules[0][4:6]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
-    
-class efficientnet_b0_3(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_b0()
-        modules = list(model.children())
-        modules = modules[0][6:]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
-
-'''
 模型：RegNety400
 '''
 class RegNety400_1(nn.Module):
@@ -108,73 +75,6 @@ class RegNety400_3(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-
-    
-'''
-模型：efficientnet_v2_s
-'''
-class efficientnet_v2_s_1(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_v2_s()
-        modules = list(model.children())
-        modules = modules[0][:4]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
-    
-class efficientnet_v2_s_2(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_v2_s()
-        modules = list(model.children())
-        modules = modules[0][4:6]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
-    
-class efficientnet_v2_s_3(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_v2_s()
-        modules = list(model.children())
-        modules = modules[0][6:]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
-    
-'''
-模型：efficientnet_b1
-'''
-class efficientnet_b1_1(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_b1()
-        modules = list(model.children())
-        modules = modules[0][:4]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
-    
-class efficientnet_b1_2(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_b1()
-        modules = list(model.children())
-        modules = modules[0][4:6]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
-    
-class efficientnet_b1_3(nn.Module):
-    def __init__(self, ignore) -> None:
-        super().__init__()
-        model = torchvision.models.efficientnet_b0()
-        modules = list(model.children())
-        modules = modules[0][6:]
-        self.model = nn.Sequential(*modules)
-    def forward(self, x):
-        return self.model(x)
 
 '''
 模型：mobilenet_v2

@@ -18,6 +18,7 @@ from .S2Attention import S2Attention
 from .SequentialSelfAttention import SequentialPolarizedSelfAttention
 from .ShuffleAttention import ShuffleAttention
 from .SKAttention import SKAttention
+from .LSKA import LSKA
 
 
 #

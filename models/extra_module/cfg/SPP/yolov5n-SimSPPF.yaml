@@ -1,7 +1,10 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# YOLOv5n-SimSPPF summary: 216 layers, 1872157 parameters, 1872157 gradients, 4.6 GFLOPs
 
+# Fusing layers... 
+# YOLOv5n-SimSPPF summary: 161 layers, 1867789 parameters, 1867789 gradients, 4.5 GFLOPs
 # Parameters
-nc: 2  # number of classes
+nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
 width_multiple: 0.25  # layer channel multiple
 anchors:

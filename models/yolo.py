@@ -195,6 +195,9 @@ class BaseModel(nn.Module):
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
                 delattr(m, "bn")  # remove batchnorm
                 m.forward = m.forward_fuse  # update forward
+            elif isinstance(m, RepConv):
+                m.fuse_convs()
+                m.forward = m.forward_fuse
         self.info()
         return self
 
@@ -385,46 +388,50 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
-            Conv,
-            GhostConv,
-            Bottleneck,
-            GhostBottleneck,
-            SPP,
-            SPPF,
-            DWConv,
-            MixConv2d,
-            Focus,
-            CrossConv,
-            BottleneckCSP,
-            C3,
-            C3TR,
-            C3SPP,
-            C3Ghost,
-            nn.ConvTranspose2d,
-            DWConvTranspose2d,
-            C3x,
-            SimSPPF,
-            ASPP,
-            RFB,
-            SPPCSPC,
-            SPPCSPC_group,
-            SimCSPSPPF,
-            C2f,
-            
+            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SPPCSPC_group,SimCSPSPPF,C2f,SPPF_LSKA,SPDConv,HWD,RepBlock,CSPStage,RCSOSA,VoVGSCSP
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = make_divisible(c2 * gw, ch_mul)
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x,C2f,}:
+            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x,C2f,CSPStage,RepBlock,RCSOSA,VoVGSCSP}:
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
         
-        elif m in [DoubleAttention,BAMBlock,CBAM, SpatialAttention, ChannelAttention,EfficientChannelAttention,CoordAtt,CoTAttention,EffectiveSEModule,EMA,GAM_Attention,GlobalContext,GatherExcite,LSKblock,MHSA,MLCA,MobileViTAttention,ParNetAttention,S2Attention,SequentialPolarizedSelfAttention,ShuffleAttention,SKAttention,FocalModulation]:
-            args = [ch[f],*args]
+        elif m is ContextGuidedBlock_Down:
+            c2 = ch[f] * 2
+            args = [ch[f], c2, *args]
+        
+        elif m in [DoubleAttention,BAMBlock,CBAM, SpatialAttention, ChannelAttention,EfficientChannelAttention,CoordAtt,CoTAttention,EffectiveSEModule,EMA,GAM_Attention,GlobalContext,GatherExcite,LSKblock,MHSA,MLCA,MobileViTAttention,ParNetAttention,S2Attention,SequentialPolarizedSelfAttention,ShuffleAttention,SKAttention,FocalModulation,DySample,CARAFE,ChannelAttention_HSFPN]:
+            c2 = ch[f]
+            args = [c2,*args]
+        
+        elif m is SDI:
+            args = [[ch[x] for x in f]]
+  
+        # --------------ASF--------------
+        elif m is asf_attention_model:
+            args = [ch[f[-1]]]
+        elif m is Zoom_cat:
+            c2 = sum(ch[x] for x in f)
+        elif m in {ScalSeq, }:
+            c1 = [ch[x] for x in f]
+            c2 = make_divisible(args[0] * gw, ch_mul)
+            args = [c1, c2]
+        elif m is Multiply:
+            c2 = ch[f[0]]
+        elif m is Add:
+            c2 = ch[f[-1]]
+        
+        
+        elif m is BiFusion:
+            c1 = [ch[x] for x in f]
+            c2 = make_divisible(args[0] *gw, ch_mul)
+            args = [c1, c2]
+            
         #直接输入参数args
         elif m in [SpatialGroupEnhance,SimAM,TripletAttention]:
             args = args
@@ -464,18 +471,9 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             MobileNetV3s_1,
             MobileNetV3s_2,
             MobileNetV3s_3,
-            efficientnet_b0_1,
-            efficientnet_b0_2,
-            efficientnet_b0_3,
             RegNety400_1,
             RegNety400_2,
             RegNety400_3,
-            efficientnet_v2_s_1,
-            efficientnet_v2_s_2,
-            efficientnet_v2_s_3,
-            efficientnet_b1_1,
-            efficientnet_b1_2,
-            efficientnet_b1_3,
             mobilenet_v2_1,
             mobilenet_v2_2,
             mobilenet_v2_3,

@@ -4,7 +4,7 @@
 # Fusing layers... 
 # RepHGNetv2 summary: 239 layers, 1798179 parameters, 1798179 gradients, 3.9 GFLOPs
 # Parameters
-nc: 2  # number of classes
+nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
 width_multiple: 0.25  # layer channel multiple
 anchors:

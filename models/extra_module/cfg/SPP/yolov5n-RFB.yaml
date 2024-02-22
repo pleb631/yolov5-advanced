@@ -1,7 +1,10 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# YOLOv5n-LSKA summary: 220 layers, 2145053 parameters, 2145053 gradients, 4.8 GFLOPs
 
+# Fusing layers...
+# YOLOv5n-LSKA summary: 163 layers, 2140301 parameters, 2140301 gradients, 4.7 GFLOPs
 # Parameters
-nc: 2  # number of classes
+nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
 width_multiple: 0.25  # layer channel multiple
 anchors:

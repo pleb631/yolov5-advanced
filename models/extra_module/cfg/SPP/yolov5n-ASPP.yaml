@@ -1,7 +1,10 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# YOLOv5n-ASPP summary: 214 layers, 3937309 parameters, 3937309 gradients, 6.2 GFLOPs
 
+# Fusing layers... 
+# YOLOv5n-ASPP summary: 159 layers, 3932941 parameters, 3932941 gradients, 6.1 GFLOPs
 # Parameters
-nc: 2  # number of classes
+nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
 width_multiple: 0.25  # layer channel multiple
 anchors:

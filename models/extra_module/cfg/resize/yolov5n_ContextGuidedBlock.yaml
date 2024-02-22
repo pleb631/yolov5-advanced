@@ -1,8 +1,8 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-# YOLOv5n-SPPCSPC_group summary: 232 layers, 2153501 parameters, 2153501 gradients, 4.8 GFLOPs
+# ContextGuidedBlock summary: 298 layers, 2480243 parameters, 2480243 gradients, 5.6 GFLOPs
 
 # Fusing layers... 
-# YOLOv5n-SPPCSPC_group summary: 170 layers, 2147341 parameters, 2147341 gradients, 4.7 GFLOPs
+# ContextGuidedBlock summary: 235 layers, 2474435 parameters, 2474435 gradients, 5.5 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
@@ -16,15 +16,15 @@ anchors:
 backbone:
   # [from, number, module, args]
   [[-1, 1, Conv, [64, 6, 2, 2]],  # 0-P1/2
-   [-1, 1, Conv, [128, 3, 2]],  # 1-P2/4
+   [-1, 1, ContextGuidedBlock_Down, []] ,  # 1-P2/4
    [-1, 3, C3, [128]],
-   [-1, 1, Conv, [256, 3, 2]],  # 3-P3/8
+   [-1, 1, ContextGuidedBlock_Down, []] ,  # 3-P3/8
    [-1, 6, C3, [256]],
-   [-1, 1, Conv, [512, 3, 2]],  # 5-P4/16
+   [-1, 1, ContextGuidedBlock_Down, []] ,  # 5-P4/16
    [-1, 9, C3, [512]],
-   [-1, 1, Conv, [1024, 3, 2]],  # 7-P5/32
+   [-1, 1, ContextGuidedBlock_Down, []] ,  # 7-P5/32
    [-1, 3, C3, [1024]],
-   [-1, 1, SPPCSPC_group, [1024]],  # 9
+   [-1, 1, SPPF, [1024,5]],  # 9
   ]
 
 # YOLOv5 v6.0 head
@@ -39,11 +39,11 @@ head:
    [[-1, 4], 1, Concat, [1]],  # cat backbone P3
    [-1, 3, C3, [256, False]],  # 17 (P3/8-small)
 
-   [-1, 1, Conv, [256, 3, 2]],
+   [-1, 1, ContextGuidedBlock_Down, []],
    [[-1, 14], 1, Concat, [1]],  # cat head P4
    [-1, 3, C3, [512, False]],  # 20 (P4/16-medium)
 
-   [-1, 1, Conv, [512, 3, 2]],
+   [-1, 1, ContextGuidedBlock_Down, []] ,
    [[-1, 10], 1, Concat, [1]],  # cat head P5
    [-1, 3, C3, [1024, False]],  # 23 (P5/32-large)
 
