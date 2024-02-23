@@ -200,10 +200,14 @@ class BaseModel(nn.Module):
                 m.forward = m.forward_fuse
             elif isinstance(m, DiverseBranchBlock):
                 m.switch_to_deploy()
+            if type(m) is Shuffle_Block:
+                m.fuse()
+                
+
         self.info()
         return self
 
-    def info(self, verbose=False, img_size=640):  # print model information
+    def info(self, verbose=False, img_size=320):  # print model information
         model_info(self, verbose, img_size)
 
     def _apply(self, fn):
@@ -390,7 +394,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
-            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SPPCSPC_group,SimCSPSPPF,C2f,SPPF_LSKA,SPDConv,HWD,RepBlock,CSPStage,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,RepNCSPELAN4
+            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SPPCSPC_group,SimCSPSPPF,C2f,SPPF_LSKA,SPDConv,HWD,RepBlock,CSPStage,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,RepNCSPELAN4,DPBlock,ES_Bottleneck,Dense,conv_bn_relu_maxpool,Shuffle_Block,conv_bn_act
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
@@ -448,6 +452,9 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             c1 = [ch[x] for x in f]
             c2 = make_divisible(args[0] *gw, ch_mul)
             args = [c1, c2]
+        
+        elif m is ADD:
+            c2 = sum([ch[x] for x in f])//2
             
         #直接输入参数args
         elif m in [SpatialGroupEnhance,SimAM,TripletAttention]:
@@ -572,7 +579,7 @@ if __name__ == "__main__":
     device = select_device(opt.device)
 
     # Create model
-    im = torch.rand(opt.batch_size, 3, 640, 640).to(device)
+    im = torch.rand(opt.batch_size, 3, 320, 320).to(device)
     model = Model(opt.cfg).to(device)
 
     # Options
