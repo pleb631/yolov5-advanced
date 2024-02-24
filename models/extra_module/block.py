@@ -5,7 +5,7 @@ from models.extra_module.conv import RepConv, GSConv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.yolo import fuse_conv_and_bn
+from utils.torch_utils import fuse_conv_and_bn
 
 __all__ = [
     "RepLightConv",

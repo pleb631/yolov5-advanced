@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 if platform.system() != "Windows":
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
+
 from models.extra_module import *
 from models.common import (
     C3,
@@ -207,7 +208,7 @@ class BaseModel(nn.Module):
         self.info()
         return self
 
-    def info(self, verbose=False, img_size=320):  # print model information
+    def info(self, verbose=False, img_size=640):  # print model information
         model_info(self, verbose, img_size)
 
     def _apply(self, fn):
@@ -219,6 +220,8 @@ class BaseModel(nn.Module):
             m.grid = list(map(fn, m.grid))
             if isinstance(m.anchor_grid, list):
                 m.anchor_grid = list(map(fn, m.anchor_grid))
+        if isinstance(m, (yolov8Detect)):
+            m.stride = fn(m.stride)
         return self
 
 
@@ -468,6 +471,8 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                 args[1] = [list(range(args[1] * 2))] * len(f)
             if m is Segment:
                 args[3] = make_divisible(args[3] * gw, ch_mul)
+        elif m in {yolov8Detect,}:
+            args.append([ch[x] for x in f])
         elif m is Contract:
             c2 = ch[f] * args[0] ** 2
         elif m is Expand:
@@ -579,7 +584,7 @@ if __name__ == "__main__":
     device = select_device(opt.device)
 
     # Create model
-    im = torch.rand(opt.batch_size, 3, 320, 320).to(device)
+    im = torch.rand(opt.batch_size, 3, 640, 640).to(device)
     model = Model(opt.cfg).to(device)
 
     # Options

@@ -4,6 +4,7 @@
 nc: 80  # number of classes
 depth_multiple: 1.  # model depth multiple
 width_multiple: 1.25  # layer channel multiple
+anchors: 0
 
 # YOLOv8 v8.1 backbone
 backbone:
