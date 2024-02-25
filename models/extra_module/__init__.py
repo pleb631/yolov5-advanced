@@ -7,6 +7,6 @@ from .conv import *
 from .neck import *
 from .combine import *
 
-from .rep_block import DiverseBranchBlock
+from .other.DiverseBranchBlock import DiverseBranchBlock
 
 

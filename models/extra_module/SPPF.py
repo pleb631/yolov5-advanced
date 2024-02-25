@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.extra_module.attention import LSKA
 
+__all__=["SimSPPF","ASPP","RFB","SPPCSPC","SimCSPSPPF","FocalModulation","SPPF_LSKA","SPPCSPC_group"]
 
 '''
 SimSPPF

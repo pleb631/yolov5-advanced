@@ -4,7 +4,7 @@ import torch.nn.init as init
 import torch.nn.functional as F
 import numpy as np
 from models.common import autopad, Conv
-from .attention import SEAttention
+from ..attention import SEAttention
 
 __all__ = ['OREPA', 'OREPA_LargeConv', 'RepVGGBlock_OREPA']
 

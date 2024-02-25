@@ -3,11 +3,7 @@ from torch import nn
 import torch
 import numpy as np
 
-__all__ = (
-    "LightConv",
-    "RepConv",
-    
-)
+__all__ = ("LightConv", "RepConv",)
 class LightConv(nn.Module):
     """
     Light convolution with args(ch_in, ch_out, kernel).

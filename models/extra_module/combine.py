@@ -304,7 +304,7 @@ class C2f_ODConv(C2f):
 
 
 ### DBB
-from .rep_block import DiverseBranchBlock
+from .other.DiverseBranchBlock import DiverseBranchBlock
 class Bottleneck_DBB(Bottleneck):
     def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5):
         super().__init__(c1, c2, shortcut, g, k, e)
@@ -667,7 +667,7 @@ class C2f_EMSCP(C2f):
 
 ### KWConv
 
-from .kernel_warehouse import KWConv
+from .other.kernel_warehouse import KWConv
 class Bottleneck_KW(Bottleneck):
     """Standard bottleneck with kernel_warehouse."""
 
@@ -696,7 +696,7 @@ class C2f_KW(C2f):
 
 
 ### SnakeConv
-from .dynamic_snake_conv import DySnakeConv
+from .other.dynamic_snake_conv import DySnakeConv
 class Bottleneck_DySnakeConv(Bottleneck):
     """Standard bottleneck with DySnakeConv."""
 
@@ -765,16 +765,13 @@ class DCNv2(nn.Module):
         mask = torch.sigmoid(mask)
         x = torchvision.ops.deform_conv2d(
             x,
-            self.weight,
             offset,
-            mask,
+            self.weight,
             self.bias,
-            self.stride[0], self.stride[1],
-            self.padding[0], self.padding[1],
-            self.dilation[0], self.dilation[1],
-            self.groups,
-            self.deformable_groups,
-            True
+            self.stride,   
+            self.padding,
+            self.dilation,
+            mask
         )
         x = self.bn(x)
         x = self.act(x)
@@ -810,7 +807,7 @@ class C2f_DCNv2(C2f):
         self.m = nn.ModuleList(Bottleneck_DCNV2(self.c, self.c, shortcut, g, k=(3, 3), e=1.0) for _ in range(n))
         
 ### 
-from .orepa import OREPA,RepVGGBlock_OREPA
+from .other.orepa import OREPA,RepVGGBlock_OREPA
 
 
 class Bottleneck_OREPA(Bottleneck):
@@ -1208,7 +1205,7 @@ class C2f_DWR(C2f):
 
 
 ### RFCA
-from .RFAConv import *
+from .other.RFAConv import *
 
 class Bottleneck_RFAConv(Bottleneck):
     """Standard bottleneck with RFAConv."""

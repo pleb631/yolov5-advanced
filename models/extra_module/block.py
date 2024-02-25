@@ -8,31 +8,7 @@ import torch.nn.functional as F
 from utils.torch_utils import fuse_conv_and_bn
 
 __all__ = [
-    "RepLightConv",
-    "Rep_HGBlock",
-    "HGStem",
-    "DFL",
-    "C1",
-    "C2",
-    "C2f",
-    "RepC3",
-    "ContextGuidedBlock_Down",
-    "SPDConv",
-    "DySample",
-    "CARAFE",
-    "HWD",
-    "RepBlock",
-    "BiFusion",
-    "CSPStage",
-    "RCSOSA",
-    "RepNCSPELAN4",
-    "DPBlock",
-    "ES_Bottleneck",
-    "Dense",
-    "conv_bn_relu_maxpool",
-    "Shuffle_Block",
-    "ADD",
-    "conv_bn_act",
+    "RepLightConv", "Rep_HGBlock", "HGStem", "DFL", "C1", "C2", "C2f", "RepC3", "ContextGuidedBlock_Down", "SPDConv", "DySample", "CARAFE", "HWD", "RepBlock", "BiFusion", "CSPStage", "RCSOSA", "RepNCSPELAN4", "DPBlock", "ES_Bottleneck", "Dense", "conv_bn_relu_maxpool", "Shuffle_Block", "ADD", "conv_bn_act","DSLK","SEAM","MultiSEAM"
 ]
 
 
@@ -1207,3 +1183,186 @@ class ADD(nn.Module):
     def forward(self, x):
         x1, x2 = x[0], x[1]
         return torch.add(x1, x2, alpha=self.a)
+
+
+### 
+
+class LargeKernelConv(nn.Module):
+
+    def __init__(self, in_channels, out_channels, kernel_size,
+                 small_kernel):
+        super(LargeKernelConv, self).__init__()
+        self.kernel_size = kernel_size
+        self.small_kernel = small_kernel
+
+        self.large_conv = nn.Sequential(
+            # nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, groups=in_channels, padding='same'),
+            nn.Conv2d(in_channels,in_channels, kernel_size=kernel_size, groups=in_channels, padding=(kernel_size-1)//2),
+            nn.GELU(),
+            nn.BatchNorm2d(in_channels))
+        if small_kernel is not None:
+            assert small_kernel <= kernel_size, 'The kernel size for re-param cannot be larger than the large kernel!'
+            self.small_conv = nn.Sequential(
+            nn.Conv2d(in_channels,in_channels, kernel_size=small_kernel, groups=in_channels, padding=(small_kernel-1)//2),
+            nn.GELU(),
+            nn.BatchNorm2d(in_channels))
+
+    def forward(self, inputs):
+        out = self.large_conv(inputs)
+        if hasattr(self, 'small_conv'):
+            out += self.small_conv(inputs)
+        else:
+            out = out + inputs
+        return out
+
+class CMBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, large_kernel, small_kernel, expansion=2,add_identity=True):
+        super().__init__()
+        hidden_channels = int(out_channels * expansion)
+        self.large_kernel = LargeKernelConv(in_channels=in_channels, out_channels=out_channels,
+                                                   kernel_size=large_kernel, small_kernel=small_kernel)
+        self.cv1 = nn.Sequential(
+            nn.Conv2d(out_channels, hidden_channels,kernel_size=1),
+            nn.GELU()
+        )
+        self.cv2 = nn.Sequential(
+            nn.Conv2d(hidden_channels, out_channels,kernel_size=1),
+            nn.BatchNorm2d(out_channels)
+        )
+        self.add_identity = \
+            add_identity and in_channels == out_channels
+
+    def forward(self, x):
+        identity = x
+        out = self.large_kernel(x)
+        out = self.cv1(out)
+        out = self.cv2(out)
+
+        if self.add_identity:
+            return out + identity
+        else:
+            return out
+
+class DSLK(nn.Module):
+    #
+    def __init__(self, c1, c2, n=1, expansion=2, add_identity=True, large_kernel=9, small_kernel=3, e=0.5):  # ch_in, ch_out, number, shortcut, groups, expansion
+        super().__init__()
+        c_ = int(c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c1, c_, 1, 1)
+        self.cv3 = Conv(2 * c_, c2, 1)  # act=FReLU(c2)
+        self.m = nn.Sequential(*(CMBlock(c_, c_, large_kernel, small_kernel, expansion, add_identity) for _ in range(n)))
+
+    def forward(self, x):
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
+
+
+### seam
+
+class Residual(nn.Module):
+    def __init__(self, fn):
+        super(Residual, self).__init__()
+        self.fn = fn
+
+    def forward(self, x):
+        return self.fn(x) + x
+
+class SEAM(nn.Module):
+    def __init__(self, c1, c2, n, reduction=16):
+        super(SEAM, self).__init__()
+        if c1 != c2:
+            c2 = c1
+        self.DCovN = nn.Sequential(
+            *[nn.Sequential(
+                Residual(nn.Sequential(
+                    nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=3, stride=1, padding=1, groups=c2),
+                    nn.GELU(),
+                    nn.BatchNorm2d(c2)
+                )),
+                nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=1, stride=1, padding=0, groups=1),
+                nn.GELU(),
+                nn.BatchNorm2d(c2)
+            ) for i in range(n)]
+        )
+        self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(c2, c2 // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(c2 // reduction, c2, bias=False),
+            nn.Sigmoid()
+        )
+
+        self._initialize_weights()
+        # self.initialize_layer(self.avg_pool)
+        self.initialize_layer(self.fc)
+
+
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.DCovN(x)
+        y = self.avg_pool(y).view(b, c)
+        y = self.fc(y).view(b, c, 1, 1)
+        y = torch.exp(y)
+        return x * y.expand_as(x)
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight, gain=1)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def initialize_layer(self, layer):
+        if isinstance(layer, (nn.Conv2d, nn.Linear)):
+            torch.nn.init.normal_(layer.weight, mean=0., std=0.001)
+            if layer.bias is not None:
+                torch.nn.init.constant_(layer.bias, 0)
+
+def DcovN(c1, c2, depth, kernel_size=3, patch_size=3):
+    dcovn = nn.Sequential(
+        nn.Conv2d(c1, c2, kernel_size=patch_size, stride=patch_size),
+        nn.SiLU(),
+        nn.BatchNorm2d(c2),
+        *[nn.Sequential(
+            Residual(nn.Sequential(
+                nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=kernel_size, stride=1, padding=1, groups=c2),
+                nn.SiLU(),
+                nn.BatchNorm2d(c2)
+            )),
+            nn.Conv2d(in_channels=c2, out_channels=c2, kernel_size=1, stride=1, padding=0, groups=1),
+            nn.SiLU(),
+            nn.BatchNorm2d(c2)
+        ) for i in range(depth)]
+    )
+    return dcovn
+
+class MultiSEAM(nn.Module):
+    def __init__(self, c1, c2, depth, kernel_size=3, patch_size=[3, 5, 7], reduction=16):
+        super(MultiSEAM, self).__init__()
+        if c1 != c2:
+            c2 = c1
+        self.DCovN0 = DcovN(c1, c2, depth, kernel_size=kernel_size, patch_size=patch_size[0])
+        self.DCovN1 = DcovN(c1, c2, depth, kernel_size=kernel_size, patch_size=patch_size[1])
+        self.DCovN2 = DcovN(c1, c2, depth, kernel_size=kernel_size, patch_size=patch_size[2])
+        self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Linear(c2, c2 // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(c2 // reduction, c2, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y0 = self.DCovN0(x)
+        y1 = self.DCovN1(x)
+        y2 = self.DCovN2(x)
+        y0 = self.avg_pool(y0).view(b, c)
+        y1 = self.avg_pool(y1).view(b, c)
+        y2 = self.avg_pool(y2).view(b, c)
+        y4 = self.avg_pool(x).view(b, c)
+        y = (y0 + y1 + y2 + y4) / 4
+        y = self.fc(y).view(b, c, 1, 1)
+        y = torch.exp(y)
+        return x * y.expand_as(x)
