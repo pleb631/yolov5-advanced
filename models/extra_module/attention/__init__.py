@@ -20,7 +20,7 @@ from .ShuffleAttention import ShuffleAttention
 from .SKAttention import SKAttention
 from .LSKA import LSKA
 from .SE import SEAttention
-
+from .CrissCrossAttention import CrissCrossAttention
 #
 from .SGE import SpatialGroupEnhance
 from .SimAM import SimAM
