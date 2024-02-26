@@ -259,8 +259,35 @@ class WIoU_Scale:
                 return beta / alpha
         return 1
     
+def wasserstein_loss(pred, target, eps=1e-7, constant=12.8):
+    r"""`Implementation of paper `Enhancing Geometric Factors into
+    Model Learning and Inference for Object Detection and Instance
+    Segmentation <https://arxiv.org/abs/2005.03572>`_.
+    Code is modified from https://github.com/Zzh-tju/CIoU.
+    Args:
+        pred (Tensor): Predicted bboxes of format (x_min, y_min, x_max, y_max),
+            shape (n, 4).
+        target (Tensor): Corresponding gt bboxes, shape (n, 4).
+        eps (float): Eps to avoid log(0).
+    Return:
+        Tensor: Loss tensor.
+    """
 
-def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=False, EIoU=False, WIoU=False, Focal=False, alpha=1, gamma=0.5, scale=False, eps=1e-7):
+    b1_x1, b1_y1, b1_x2, b1_y2 = pred.chunk(4, -1)
+    b2_x1, b2_y1, b2_x2, b2_y2 = target.chunk(4, -1)
+    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1 + eps
+    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1 + eps
+    
+    b1_x_center, b1_y_center = b1_x1, b1_y1
+    b2_x_center, b2_y_center = b2_x1, b2_y1
+    center_distance = (b1_x_center - b2_x_center) ** 2 + (b1_y_center - b2_y_center) ** 2 + eps
+    wh_distance = ((w1 - w2) ** 2 + (h1 - h2) ** 2) / 4
+
+    wasserstein_2 = center_distance + wh_distance
+    return torch.exp(-torch.sqrt(wasserstein_2) / constant)
+
+
+def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=False, EIoU=False, WIoU=False, MPDIoU=False, ShapeIoU=False, PIoU=False, PIoU2=False, alpha=1, gamma=0.5, scale=False, hw=None,Lambda=1.3,eps=1e-7):
     # Returns Intersection over Union (IoU) of box1(1,4) to box2(n,4)
 
     # Get the coordinates of bounding boxes
@@ -297,19 +324,14 @@ def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=Fal
                 v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
                 with torch.no_grad():
                     alpha_ciou = v / (v - iou + (1 + eps))
-                if Focal:
-                    return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha)), torch.pow(inter/(union + eps), gamma)  # Focal_CIoU
-                else:
-                    return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha))  # CIoU
+                return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha))  # CIoU
             elif EIoU:
                 rho_w2 = ((b2_x2 - b2_x1) - (b1_x2 - b1_x1)) ** 2
                 rho_h2 = ((b2_y2 - b2_y1) - (b1_y2 - b1_y1)) ** 2
                 cw2 = torch.pow(cw ** 2 + eps, alpha)
                 ch2 = torch.pow(ch ** 2 + eps, alpha)
-                if Focal:
-                    return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2), torch.pow(inter/(union + eps), gamma) # Focal_EIou
-                else:
-                    return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2) # EIou
+                return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2) # EIou
+            
             elif SIoU:
                 # SIoU Loss https://arxiv.org/pdf/2205.12740.pdf
                 s_cw = (b2_x1 + b2_x2 - b1_x1 - b1_x2) * 0.5 + eps
@@ -327,30 +349,60 @@ def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=Fal
                 omiga_w = torch.abs(w1 - w2) / torch.max(w1, w2)
                 omiga_h = torch.abs(h1 - h2) / torch.max(h1, h2)
                 shape_cost = torch.pow(1 - torch.exp(-1 * omiga_w), 4) + torch.pow(1 - torch.exp(-1 * omiga_h), 4)
-                if Focal:
-                    return iou - torch.pow(0.5 * (distance_cost + shape_cost) + eps, alpha), torch.pow(inter/(union + eps), gamma) # Focal_SIou
-                else:
-                    return iou - torch.pow(0.5 * (distance_cost + shape_cost) + eps, alpha) # SIou
+                
+                return iou - torch.pow(0.5 * (distance_cost + shape_cost) + eps, alpha) # SIou
             elif WIoU:
-                if Focal:
-                    raise RuntimeError("WIoU do not support Focal.")
-                elif scale:
+                if scale:
                     return getattr(WIoU_Scale, '_scaled_loss')(self), (1 - iou) * torch.exp((rho2 / c2)), iou # WIoU https://arxiv.org/abs/2301.10051
                 else:
                     return iou, torch.exp((rho2 / c2)) # WIoU v1
-            if Focal:
-                return iou - rho2 / c2, torch.pow(inter/(union + eps), gamma)  # Focal_DIoU
-            else:
-                return iou - rho2 / c2  # DIoU
+                
+            elif ShapeIoU:
+                #Shape-Distance 
+                ww = 2 * torch.pow(w2, scale) / (torch.pow(w2, scale) + torch.pow(h2, scale))
+                hh = 2 * torch.pow(h2, scale) / (torch.pow(w2, scale) + torch.pow(h2, scale))
+                cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex width
+                ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
+                c2 = cw ** 2 + ch ** 2 + eps                            # convex diagonal squared
+                center_distance_x = ((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2) / 4
+                center_distance_y = ((b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4
+                center_distance = hh * center_distance_x + ww * center_distance_y
+                distance = center_distance / c2
+
+  
+                omiga_w = hh * torch.abs(w1 - w2) / torch.max(w1, w2)
+                omiga_h = ww * torch.abs(h1 - h2) / torch.max(h1, h2)
+                shape_cost = torch.pow(1 - torch.exp(-1 * omiga_w), 4) + torch.pow(1 - torch.exp(-1 * omiga_h), 4)
+                return iou - distance - 0.5 * shape_cost
+            
+            elif PIoU or PIoU2:
+                dw1 = torch.abs(b1_x2.minimum(b1_x1)-b2_x2.minimum(b2_x1))
+                dw2 = torch.abs(b1_x2.maximum(b1_x1)-b2_x2.maximum(b2_x1))
+                dh1 = torch.abs(b1_y2.minimum(b1_y1)-b2_y2.minimum(b2_y1))
+                dh2 = torch.abs(b1_y2.maximum(b1_y1)-b2_y2.maximum(b2_y1))
+                P = ((dw1+dw2)/torch.abs(w2)+(dh1+dh2)/torch.abs(h2))/4
+                piou_v1 = 1 - iou - torch.exp(-P**2) + 1
+                if PIoU:
+                    return 1 - piou_v1
+                elif PIoU2:
+                    q=torch.exp(-P)
+                    x=q*Lambda
+                    return 1 - 3*x*torch.exp(-x**2)*piou_v1
+                
+            return iou - rho2 / c2  # DIoU
+        
+        if MPDIoU:
+            # union = w1 * h1 + w2 * h2 - inter + eps
+            mpd_d1 = (b1_x1 - b2_x1) ** 2 + (b1_y1 - b2_y1) ** 2
+            mpd_d2 = (b1_x2 - b2_x2) ** 2 + (b1_y2 - b2_y2) ** 2
+            # mpd_d = image_size[0] ** 2 + image_size[1] ** 2
+            return inter / union - mpd_d1 / hw - mpd_d2 / hw
+            
+        
         c_area = cw * ch + eps  # convex area
-        if Focal:
-            return iou - torch.pow((c_area - union) / c_area + eps, alpha), torch.pow(inter/(union + eps), gamma)  # Focal_GIoU https://arxiv.org/pdf/1902.09630.pdf
-        else:
-            return iou - torch.pow((c_area - union) / c_area + eps, alpha)  # GIoU https://arxiv.org/pdf/1902.09630.pdf
-    if Focal:
-        return iou, torch.pow(inter/(union + eps), gamma)  # Focal_IoU
-    else:
-        return iou  # IoU
+        return iou - torch.pow((c_area - union) / c_area + eps, alpha)  # GIoU https://arxiv.org/pdf/1902.09630.pdf
+
+    return iou  # IoU
 
 def box_iou(box1, box2, eps=1e-7):
     # https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py

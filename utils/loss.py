@@ -9,7 +9,7 @@ from utils.metrics import bbox_iou
 from utils.torch_utils import de_parallel
 from utils.general import xywh2xyxy
 from utils.metrics import box_iou
-
+from utils.metrics import wasserstein_loss
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
     # return positive, negative label smoothing BCE targets
@@ -140,9 +140,17 @@ class ComputeLoss:
                 pwh = (pwh.sigmoid() * 2) ** 2 * anchors[i]
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
                 iou = bbox_iou(pbox, tbox[i], CIoU=True).squeeze()  # iou(prediction, target)
+
+               # iou = bbox_iou(pbox, tbox[i], hw=tobj.size()[2]**2 + tobj.size()[3]**2, MPDIoU=True).squeeze()
+                
+                # nwd = wasserstein_loss(pbox, tbox[i]).squeeze()
+                # iou_ratio = 0.5  # 如果数据集全是小目标，此处推荐设置为0，也就是只计算NWD
+                # lbox += (1 - iou_ratio) * (1.0 - nwd).mean() + iou_ratio * (1.0 - iou).mean()  # iou loss
+                # iou = (iou.detach() * iou_ratio + nwd.detach() * (1 - iou_ratio)).clamp(0, 1).type(tobj.dtype)
+                
                 lbox += (1.0 - iou).mean()  # iou loss
 
-                # Objectness
+                #Objectness
                 iou = iou.detach().clamp(0).type(tobj.dtype)
                 if self.sort_obj_iou:
                     j = iou.argsort()
