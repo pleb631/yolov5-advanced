@@ -5,8 +5,9 @@ import torch.nn.functional as F
 from ultralytics.utils.ops import xywh2xyxy
 from ultralytics.utils.tal import TaskAlignedAssigner, dist2bbox, make_anchors
 from ultralytics.utils.loss import bbox2dist
-from utils.metrics import bbox_iou,wasserstein_loss
-
+from utils.metrics import bbox_iou, wasserstein_loss
+from utils.loss import FocalLoss_YOLO, VarifocalLoss_YOLO, QualityfocalLoss_YOLO, EMASlideLoss, SlideLoss
+from .atss import ATSSAssigner, generate_anchors
 
 class BboxLoss(nn.Module):
     """Criterion class for computing training losses during training."""
@@ -65,6 +66,11 @@ class v8DetectionLoss:
 
         m = model.model[-1]  # Detect() module
         self.bce = nn.BCEWithLogitsLoss(reduction="none")
+        # self.bce = EMASlideLoss(nn.BCEWithLogitsLoss(reduction='none'))  # Exponential Moving Average Slide Loss
+        # self.bce = SlideLoss(nn.BCEWithLogitsLoss(reduction='none')) # Slide Loss
+        # self.bce = FocalLoss_YOLO(alpha=0.25, gamma=1.5) # FocalLoss
+        # self.bce = VarifocalLoss_YOLO(alpha=0.75, gamma=2.0) # VarifocalLoss
+        # self.bce = QualityfocalLoss_YOLO(beta=2.0) # QualityfocalLoss
         #self.hyp = h
         self.stride = m.stride  # model strides
         self.nc = m.nc  # number of classes
@@ -73,7 +79,7 @@ class v8DetectionLoss:
         self.device = device
 
         self.use_dfl = m.reg_max > 1
-
+        #self.assigner = ATSSAssigner(9, num_classes=self.nc)
         self.assigner = TaskAlignedAssigner(topk=10, num_classes=self.nc, alpha=0.5, beta=6.0)
         self.bbox_loss = BboxLoss(m.reg_max - 1, use_dfl=self.use_dfl).to(device)
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
@@ -129,28 +135,76 @@ class v8DetectionLoss:
 
         # Pboxes
         pred_bboxes = self.bbox_decode(anchor_points, pred_distri)  # xyxy, (b, h*w, 4)
-
-        _, target_bboxes, target_scores, fg_mask, _ = self.assigner(
-            pred_scores.detach().sigmoid(),
-            (pred_bboxes.detach() * stride_tensor).type(gt_bboxes.dtype),
-            anchor_points * stride_tensor,
-            gt_labels,
-            gt_bboxes,
-            mask_gt,
-        )
+        if isinstance(self.assigner, ATSSAssigner):
+            anchors, _, n_anchors_list, _ = \
+               generate_anchors(feats, self.fpn_strides, self.grid_cell_size, self.grid_cell_offset, device=feats[0].device)
+            target_labels, target_bboxes, target_scores, fg_mask, _ = self.assigner(anchors, n_anchors_list, gt_labels, gt_bboxes, mask_gt, pred_bboxes.detach() * stride_tensor)
+        # TAL
+        else:
+            target_labels, target_bboxes, target_scores, fg_mask,target_gt_idx = self.assigner(
+                pred_scores.detach().sigmoid(),
+                (pred_bboxes.detach() * stride_tensor).type(gt_bboxes.dtype),
+                anchor_points * stride_tensor,
+                gt_labels,
+                gt_bboxes,
+                mask_gt,
+            )
 
         target_scores_sum = max(target_scores.sum(), 1)
 
         # Cls loss
-        # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
-        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+        if isinstance(self.bce, (nn.BCEWithLogitsLoss, FocalLoss_YOLO)):
+            loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+        elif isinstance(self.bce, VarifocalLoss_YOLO):
+            if fg_mask.sum():
+                pos_ious = bbox_iou(pred_bboxes, target_bboxes / stride_tensor, xywh=False).clamp(min=1e-6).detach()
+                # 10.0x Faster than torch.one_hot
+                cls_iou_targets = torch.zeros((target_labels.shape[0], target_labels.shape[1], self.nc),
+                                        dtype=torch.int64,
+                                        device=target_labels.device)  # (b, h*w, 80)
+                cls_iou_targets.scatter_(2, target_labels.unsqueeze(-1), 1)
+                cls_iou_targets = pos_ious * cls_iou_targets
+                fg_scores_mask = fg_mask[:, :, None].repeat(1, 1, self.nc)  # (b, h*w, 80)
+                cls_iou_targets = torch.where(fg_scores_mask > 0, cls_iou_targets, 0)
+            else:
+                cls_iou_targets = torch.zeros((target_labels.shape[0], target_labels.shape[1], self.nc),
+                                        dtype=torch.int64,
+                                        device=target_labels.device)  # (b, h*w, 80)
+            loss[1] = self.bce(pred_scores, cls_iou_targets.to(dtype)).sum() / max(fg_mask.sum(), 1)  # BCE
+        elif isinstance(self.bce, QualityfocalLoss_YOLO):
+            if fg_mask.sum():
+                pos_ious = bbox_iou(pred_bboxes, target_bboxes / stride_tensor, xywh=False).clamp(min=1e-6).detach()
+                # 10.0x Faster than torch.one_hot
+                targets_onehot = torch.zeros((target_labels.shape[0], target_labels.shape[1], self.nc),
+                                        dtype=torch.int64,
+                                        device=target_labels.device)  # (b, h*w, 80)
+                targets_onehot.scatter_(2, target_labels.unsqueeze(-1), 1)
+                cls_iou_targets = pos_ious * targets_onehot
+                fg_scores_mask = fg_mask[:, :, None].repeat(1, 1, self.nc)  # (b, h*w, 80)
+                targets_onehot_pos = torch.where(fg_scores_mask > 0, targets_onehot, 0)
+                cls_iou_targets = torch.where(fg_scores_mask > 0, cls_iou_targets, 0)
+            else:
+                cls_iou_targets = torch.zeros((target_labels.shape[0], target_labels.shape[1], self.nc),
+                                        dtype=torch.int64,
+                                        device=target_labels.device)  # (b, h*w, 80)
+                targets_onehot_pos = torch.zeros((target_labels.shape[0], target_labels.shape[1], self.nc),
+                                        dtype=torch.int64,
+                                        device=target_labels.device)  # (b, h*w, 80)
+            loss[1] = self.bce(pred_scores, cls_iou_targets.to(dtype), targets_onehot_pos.to(torch.bool)).sum() / max(fg_mask.sum(), 1)
 
-        # Bbox loss
+        # bbox loss
         if fg_mask.sum():
             target_bboxes /= stride_tensor
-            loss[0], loss[2] = self.bbox_loss(
-                pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
-            )
+            loss[0], loss[2] = self.bbox_loss(pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores,
+                                              target_scores_sum, fg_mask, ((imgsz[0] ** 2 + imgsz[1] ** 2) / torch.square(stride_tensor)).repeat(1, batch_size).transpose(1, 0))
+
+        if isinstance(self.bce, (EMASlideLoss, SlideLoss)):
+            if fg_mask.sum():
+                auto_iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True).mean()
+            else:
+                auto_iou = -1
+            loss[1] = self.bce(pred_scores, target_scores.to(dtype), auto_iou).sum() / target_scores_sum  # BCE
+        
 
         loss[0] *= 7.5  # box gain
         loss[1] *= 0.5  # cls gain
