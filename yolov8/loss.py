@@ -6,7 +6,7 @@ from ultralytics.utils.ops import xywh2xyxy
 from ultralytics.utils.tal import TaskAlignedAssigner, dist2bbox, make_anchors
 from ultralytics.utils.loss import bbox2dist
 from utils.metrics import bbox_iou, wasserstein_loss
-from utils.loss import FocalLoss_YOLO, VarifocalLoss_YOLO, QualityfocalLoss_YOLO, EMASlideLoss, SlideLoss
+from utils.loss import FocalLoss_YOLO, VarifocalLoss_YOLO, QualityfocalLoss_YOLO, EMASlideLoss, SlideLoss,RepLoss
 from .atss import ATSSAssigner, generate_anchors
 
 class BboxLoss(nn.Module):
@@ -19,19 +19,43 @@ class BboxLoss(nn.Module):
         self.use_dfl = use_dfl
         self.iou_ratio = 0.5
         self.nwd_loss = False
+        self.lrep_loss = False
+        self.rep_loss = RepLoss(alpha=0.5, beta=0.5, sigma=0.5)
 
     def forward(self, pred_dist, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask):
         """IoU loss."""
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
         iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)
-        loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum
-
         
+        if type(iou) is tuple:
+            #wiou
+            if len(iou) == 2:
+                loss_iou = (iou[1].detach() * (1 - iou[0])).sum() / target_scores_sum
+                iou = iou[0]
+            else:
+                loss_iou = (iou[0] * iou[1]).sum() / target_scores_sum
+                iou = iou[2]
+        else:
+            loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum  # iou loss
+            
         if self.nwd_loss:
             nwd = wasserstein_loss(pred_bboxes[fg_mask], target_bboxes[fg_mask])
             nwd_loss = ((1.0 - nwd) * weight).sum() / target_scores_sum
             loss_iou = self.iou_ratio * loss_iou +  (1 - self.iou_ratio) * nwd_loss
             
+        if self.lrep_loss:
+            lrep=torch.tensor(0.0).to(pred_bboxes.device)
+            bs=0
+            for _,(mask,gt_batch_boxes, prd_batch_boxes) in enumerate(zip(fg_mask,pred_bboxes,  target_bboxes)):
+                    if len(gt_batch_boxes[mask]) and len(prd_batch_boxes[mask]):
+                        lrep += self.rep_loss(gt_batch_boxes[mask], prd_batch_boxes[mask])
+                        bs+=1
+            if bs>0:
+                lrep = lrep / bs
+        
+            loss_iou +=lrep*0.01
+        
+                  
         # DFL loss
         if self.use_dfl:
             target_ltrb = bbox2dist(anchor_points, target_bboxes, self.reg_max)
@@ -195,8 +219,7 @@ class v8DetectionLoss:
         # bbox loss
         if fg_mask.sum():
             target_bboxes /= stride_tensor
-            loss[0], loss[2] = self.bbox_loss(pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores,
-                                              target_scores_sum, fg_mask, ((imgsz[0] ** 2 + imgsz[1] ** 2) / torch.square(stride_tensor)).repeat(1, batch_size).transpose(1, 0))
+            loss[0], loss[2] = self.bbox_loss(pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask)
 
         if isinstance(self.bce, (EMASlideLoss, SlideLoss)):
             if fg_mask.sum():
