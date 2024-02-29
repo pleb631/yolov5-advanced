@@ -6,7 +6,11 @@ from torch.nn.modules.activation import ReLU
 from torch.nn.modules.batchnorm import BatchNorm2d
 from torch.nn import functional as F
 
+# 论文地址：https://arxiv.org/abs/2107.12292
 
+# 代码地址：https://github.com/JDAI-CV/CoTNet
+
+# 核心代码：https://github.com/xmu-xiaoma66
 class CoTAttention(nn.Module):
 
     def __init__(self, dim=512, kernel_size=3):

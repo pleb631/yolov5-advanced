@@ -60,6 +60,7 @@ class SpatialAttention(nn.Module):
         return res
 
 
+# BAM: Bottleneck Attention Module
 class BAMBlock(nn.Module):
     def __init__(self, channel=512, reduction=16, dia_val=2):
         super().__init__()

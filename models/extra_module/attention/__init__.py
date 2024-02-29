@@ -12,7 +12,6 @@ from .GE import GatherExcite
 from .LSKBlock import LSKblock
 from .MHSA import MHSA
 from .MLCA import MLCA
-from .MobileViTAttention import MobileViTAttention
 from .ParNetAttention import ParNetAttention
 from .S2Attention import S2Attention
 from .SequentialSelfAttention import SequentialPolarizedSelfAttention

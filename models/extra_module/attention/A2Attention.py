@@ -4,7 +4,7 @@ from torch import nn
 from torch.nn import init
 from torch.nn import functional as F
 
-
+# A2-Nets: Double Attention Networks（NIPS 2018）
 
 class DoubleAttention(nn.Module):
 

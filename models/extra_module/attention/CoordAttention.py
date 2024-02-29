@@ -20,7 +20,8 @@ class h_swish(nn.Module):
     def forward(self, x):
         return x * self.sigmoid(x)
 
-
+# Paper：https://arxiv.org/pdf/2103.02907.pdf
+# GitHub：https://github.com/Andrew-Qibin/CoordAttention
 class CoordAtt(nn.Module):
     def __init__(self, inp, reduction=32):
         super(CoordAtt, self).__init__()
