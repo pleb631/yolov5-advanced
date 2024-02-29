@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# RCSOSA summary: 262 layers, 5336157 parameters, 5336157 gradients, 13.8 GFLOPs
-
-# Fusing layers...
-# RCSOSA summary: 107 layers, 4886493 parameters, 898797 gradients, 12.6 GFLOPs
+# YOLOv5s_RCSOSA summary: 262 layers, 21090749 parameters, 21090749 gradients, 53.8 GFLOPs
 # Parameters
 nc: 80 # number of classes
 depth_multiple: 0.33 # model depth multiple

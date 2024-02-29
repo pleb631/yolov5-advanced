@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-# ContextGuidedBlock summary: 298 layers, 2480243 parameters, 2480243 gradients, 5.6 GFLOPs
-
-# Fusing layers... 
-# ContextGuidedBlock summary: 235 layers, 2474435 parameters, 2474435 gradients, 5.5 GFLOPs
+# YOLOv5s_ContextGuidedBlock summary: 298 layers, 9620201 parameters, 9620201 gradients, 20.6 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

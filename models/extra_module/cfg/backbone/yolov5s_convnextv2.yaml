@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# convnextv2 summary: 223 layers, 4755181 parameters, 4755181 gradients, 10.9 GFLOPs
-
-# Fusing layers...
-# convnextv2 summary: 197 layers, 4752653 parameters, 4752653 gradients, 10.8 GFLOPs
+# YOLOv5s_convnextv2 summary: 223 layers, 7121837 parameters, 7121837 gradients, 15.2 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# HSFPN summary: 210 layers, 1283741 parameters, 1283741 gradients, 4.2 GFLOPs
-
-# Fusing layers...
-# HSFPN summary: 164 layers, 1280525 parameters, 1280525 gradients, 4.1 GFLOPs
+# YOLOv5s_HSFPN summary: 210 layers, 5018173 parameters, 5018173 gradients, 15.3 GFLOPs
 # Parameters
 nc: 80 # number of classes
 depth_multiple: 0.33 # model depth multiple

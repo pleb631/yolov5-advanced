@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# EfficientViT_M0 summary: 582 layers, 3066013 parameters, 3066013 gradients
-
-# Fusing layers... 
-# EfficientViT_M0 summary: 556 layers, 3063613 parameters, 3063613 gradients
+# YOLOv5s_EfficientViT summary: 582 layers, 5394909 parameters, 5394909 gradients
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

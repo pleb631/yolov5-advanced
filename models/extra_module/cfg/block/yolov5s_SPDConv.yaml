@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-# SPDConv summary: 220 layers, 3600157 parameters, 3600157 gradients, 8.1 GFLOPs
-
-# Fusing layers... 
-# SPDConv summary: 163 layers, 3595405 parameters, 3595405 gradients, 8.0 GFLOPs
+# YOLOv5s_SPDConv summary: 220 layers, 14147389 parameters, 14147389 gradients, 30.8 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

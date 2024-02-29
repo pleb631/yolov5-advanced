@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-# RegNety400 summary: 450 layers, 5105725 parameters, 5105725 gradients, 9.4 GFLOPs
-
-# Fusing layers... 
-# RegNety400 summary: 424 layers, 5103137 parameters, 5103137 gradients, 9.4 GFLOPs
+# YOLOv5s_RegNety400 summary: 450 layers, 7664381 parameters, 7664381 gradients, 14.0 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

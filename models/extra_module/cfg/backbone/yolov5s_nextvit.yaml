@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# nextvit_small summary: 544 layers, 32675709 parameters, 32675709 gradients, 97.5 GFLOPs
-
-# Fusing layers... 
-# nextvit_small summary: 518 layers, 32672829 parameters, 32672829 gradients, 97.4 GFLOPs
+# YOLOv5s_nextvit summary: 544 layers, 35459133 parameters, 35459133 gradients, 102.4 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# EfficientRepBiPAN summary: 331 layers, 2295901 parameters, 2295901 gradients, 5.8 GFLOPs
-
-# Fusing layers...
-# EfficientRepBiPAN summary: 174 layers, 2186829 parameters, 1264077 gradients, 5.5 GFLOPs
+# YOLOv5s_EfficientRepBiPAN summary: 319 layers, 9041341 parameters, 9041341 gradients, 22.0 GFLOPs
 # Parameters
 nc: 80 # number of classes
 depth_multiple: 0.33 # model depth multiple

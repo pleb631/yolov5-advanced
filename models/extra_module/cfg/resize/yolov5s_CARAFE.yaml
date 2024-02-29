@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# CARAFE summary: 234 layers, 2000301 parameters, 2000301 gradients, 4.8 GFLOPs
-
-# Fusing layers... 
-# CARAFE summary: 173 layers, 1995221 parameters, 1995221 gradients, 4.7 GFLOPs
+# YOLOv5s_CARAFE summary: 234 layers, 7375821 parameters, 7375821 gradients, 16.9 GFLOPs
 # Parameters
 nc: 80 # number of classes
 depth_multiple: 0.33 # model depth multiple

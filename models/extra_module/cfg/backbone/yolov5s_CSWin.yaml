@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# CSWin_tiny summary: 596 layers, 23047037 parameters, 23047037 gradients
-
-# Fusing layers... 
-# CSWin_tiny summary: 570 layers, 23044413 parameters, 23044413 gradients
+# YOLOv5s_CSWin summary: 596 layers, 25527357 parameters, 25527357 gradients
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

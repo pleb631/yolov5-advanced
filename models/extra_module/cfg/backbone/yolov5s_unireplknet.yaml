@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# unireplknet_a summary: 468 layers, 5375401 parameters, 5375401 gradients, 13.3 GFLOPs
-
-# Fusing layers... 
-# unireplknet_a summary: 442 layers, 5372873 parameters, 5372873 gradients, 13.3 GFLOPs
+# YOLOv5s_unireplknet summary: 468 layers, 7742057 parameters, 7742057 gradients, 17.6 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

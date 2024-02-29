@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-#  AFPN summary: 342 layers, 1659698 parameters, 1659698 gradients, 4.2 GFLOPs
-
-# Fusing layers...
-# AFPN summary: 253 layers, 1654810 parameters, 1654810 gradients, 4.1 GFLOPs
+# YOLOv5s_AFPN summary: 342 layers, 6484338 parameters, 6484338 gradients, 15.5 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

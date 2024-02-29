@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-# RepHGNetv2 summary: 313 layers, 1804943 parameters, 1804943 gradients, 4.0 GFLOPs
-
-# Fusing layers... 
-# RepHGNetv2 summary: 239 layers, 1798179 parameters, 1798179 gradients, 3.9 GFLOPs
+# YOLOv5s_RepHGNetv2 summary: 313 layers, 7602925 parameters, 7602925 gradients, 16.8 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

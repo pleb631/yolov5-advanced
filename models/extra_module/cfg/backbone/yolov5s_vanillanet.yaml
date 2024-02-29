@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# vanillanet_10 summary: 196 layers, 88709565 parameters, 88709565 gradients, 282.9 GFLOPs
-
-# Fusing layers... 
-# vanillanet_10 summary: 170 layers, 88705149 parameters, 88705149 gradients, 282.9 GFLOPs
+# YOLOv5s_vanillanet summary: 196 layers, 93311613 parameters, 93311613 gradients, 290.4 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

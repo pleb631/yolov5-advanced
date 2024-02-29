@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-# HWD summary: 226 layers, 1552157 parameters, 1552157 gradients, 3.9 GFLOPs
-
-# Fusing layers... 
-# HWD summary: 169 layers, 1547405 parameters, 1547405 gradients, 3.8 GFLOPs
+# YOLOv5s_HWD summary: 226 layers, 5955389 parameters, 5955389 gradients, 14.0 GFLOPs
 # Parameters
 # 需要关闭amp
 nc: 80  # number of classes

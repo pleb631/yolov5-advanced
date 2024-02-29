@@ -1,5 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-
+# YOLOv5s_DSLK summary: 313 layers, 7075357 parameters, 7075357 gradients, 15.9 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

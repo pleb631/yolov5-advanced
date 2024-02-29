@@ -532,7 +532,6 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             unireplknet_a,
             nextvit_small,
             vanillanet_10,
-            SwinTransformer_Tiny,
             inceptionnext_tiny,
             CSWin_tiny,
         ]:
@@ -603,7 +602,7 @@ if __name__ == "__main__":
         results = profile(input=im, ops=[model], n=3)
 
     elif opt.test:  # test all models
-        for cfg in Path(ROOT / "models").rglob("yolo*.yaml"):
+        for cfg in Path(r"E:\project\code\yolov5\models\extra_module\cfg\resize").rglob("yolo*.yaml"):
             try:
                 _ = Model(cfg)
             except Exception as e:

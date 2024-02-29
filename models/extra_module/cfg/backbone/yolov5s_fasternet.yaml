@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# fasternet_t0 summary: 249 layers, 3262881 parameters, 3262881 gradients, 7.5 GFLOPs
-
-# Fusing layers... 
-# fasternet_t0 summary: 223 layers, 3260353 parameters, 3260353 gradients, 7.5 GFLOPs
+# YOLOv5s_fasternet summary: 249 layers, 5629537 parameters, 5629537 gradients, 11.8 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

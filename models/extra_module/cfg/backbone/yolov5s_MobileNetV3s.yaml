@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, GPL-3.0 license
-# MobileNetV3s summary: 313 layers, 2242845 parameters, 2242845 gradients, 3.4 GFLOPs
-
-# Fusing layers... 
-# MobileNetV3s summary: 287 layers, 2240189 parameters, 2240189 gradients, 3.4 GFLOPs
+# YOLOv5s_MobileNetV3s summary: 313 layers, 4845533 parameters, 4845533 gradients, 8.0 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

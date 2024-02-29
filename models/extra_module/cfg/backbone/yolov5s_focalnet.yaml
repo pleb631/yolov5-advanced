@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# focalnet_tiny_srf summary: 394 layers, 29214273 parameters, 29214273 gradients, 74.6 GFLOPs
-
-# Fusing layers... 
-# focalnet_tiny_srf summary: 368 layers, 29211521 parameters, 29211521 gradients, 74.6 GFLOPs
+# YOLOv5s_focalnet summary: 394 layers, 31846145 parameters, 31846145 gradients, 79.3 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

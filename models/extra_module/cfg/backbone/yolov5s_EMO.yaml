@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# EMO_1M summary: 505 layers, 2111597 parameters, 2111597 gradients, 25.9 GFLOPs
-
-# Fusing layers...
-# EMO_1M summary: 479 layers, 2109145 parameters, 2109145 gradients, 25.9 GFLOPs
+# YOLOv5s_EMO summary: 505 layers, 4388141 parameters, 4388141 gradients, 30.1 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

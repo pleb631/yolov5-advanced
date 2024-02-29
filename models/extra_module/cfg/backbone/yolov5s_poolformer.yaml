@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# poolformer_s12 summary: 260 layers, 12651901 parameters, 12651901 gradients, 31.8 GFLOPs
-
-# Fusing layers... 
-# poolformer_s12 summary: 234 layers, 12649277 parameters, 12649277 gradients, 31.7 GFLOPs
+# YOLOv5s_poolformer summary: 260 layers, 15140413 parameters, 15140413 gradients, 36.3 GFLOPs
 # Parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple

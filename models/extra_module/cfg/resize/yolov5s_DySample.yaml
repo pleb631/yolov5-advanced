@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# DySample summary: 216 layers, 1878365 parameters, 1878365 gradients, 4.6 GFLOPs
-
-# Fusing layers... 
-# DySample summary: 159 layers, 1873613 parameters, 1873613 gradients, 4.5 GFLOPs
+# YOLOv5s_DySample summary: 216 layers, 7247741 parameters, 7247741 gradients, 16.6 GFLOPs
 # Parameters
 nc: 80 # number of classes
 depth_multiple: 0.33 # model depth multiple

@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# VoVGSCSP summary: 282 layers, 2008509 parameters, 2008509 gradients, 4.4 GFLOPs
-
-# Fusing layers... 
-# VoVGSCSP summary: 209 layers, 2003181 parameters, 2003181 gradients, 4.3 GFLOPs
+# YOLOv5s_VoVGSCSP summary: 282 layers, 7764093 parameters, 7764093 gradients, 15.8 GFLOPs
 # Parameters
 nc: 80 # number of classes
 depth_multiple: 0.33 # model depth multiple

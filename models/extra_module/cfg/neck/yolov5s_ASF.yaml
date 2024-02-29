@@ -1,8 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# ASF summary: 230 layers, 1932381 parameters, 1932381 gradients, 5.1 GFLOPs
-
-# Fusing layers... 
-# ASF summary: 169 layers, 1927309 parameters, 1927309 gradients, 5.0 GFLOPs
+# YOLOv5s_ASF summary: 230 layers, 7474621 parameters, 7474621 gradients, 18.7 GFLOPs
 # Parameters
 nc: 80 # number of classes
 depth_multiple: 0.33 # model depth multiple
