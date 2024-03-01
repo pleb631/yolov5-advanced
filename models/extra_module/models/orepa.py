@@ -6,7 +6,10 @@ import numpy as np
 from models.common import autopad, Conv
 from ..attention import SEAttention
 
-__all__ = ['OREPA', 'OREPA_LargeConv', 'RepVGGBlock_OREPA']
+from models.common import *
+from models.extra_module.models.yolov8 import C2f
+
+__all__ = ['OREPA', 'OREPA_LargeConv', 'RepVGGBlock_OREPA',"C2f_OREPA","C3_OREPA","C3_REPVGGOREPA","C2f_REPVGGOREPA"]
 
 def transI_fusebn(kernel, bn):
     gamma = bn.weight
@@ -700,4 +703,57 @@ class RepVGGBlock_OREPA(nn.Module):
         self.__delattr__('rbr_1x1')
         if hasattr(self, 'rbr_identity'):
             self.__delattr__('rbr_identity')
+
+
+
+
+class Bottleneck_OREPA(Bottleneck):
+    """Standard bottleneck with OREPA."""
+
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5):  # ch_in, ch_out, shortcut, groups, kernels, expand
+        super().__init__(c1, c2, shortcut, g, k, e)
+        c_ = int(c2 * e)  # hidden channels
+        if k[0] == 1:
+            self.cv1 = Conv(c1, c_)
+        else:
+            self.cv1 = OREPA(c1, c_, k[0])
+        self.cv2 = OREPA(c_, c2, k[1], groups=g)
+
+class C3_OREPA(C3):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(Bottleneck_OREPA(c_, c_, shortcut, g, k=(1, 3), e=1.0) for _ in range(n)))
+
+class C2f_OREPA(C2f):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        self.m = nn.ModuleList(Bottleneck_OREPA(self.c, self.c, shortcut, g, k=(3, 3), e=1.0) for _ in range(n))
+        
+
+
+class Bottleneck_REPVGGOREPA(Bottleneck):
+    """Standard bottleneck with DCNV2."""
+
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5):  # ch_in, ch_out, shortcut, groups, kernels, expand
+        super().__init__(c1, c2, shortcut, g, k, e)
+        c_ = int(c2 * e)  # hidden channels
+        if k[0] == 1:
+            self.cv1 = Conv(c1, c_, 1)
+        else:
+            self.cv1 = RepVGGBlock_OREPA(c1, c_, 3)
+        
+        self.cv2 = RepVGGBlock_OREPA(c_, c2, 3, groups=g)
+
+class C3_REPVGGOREPA(C3):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(Bottleneck_REPVGGOREPA(c_, c_, shortcut, g, k=(1, 3), e=1.0) for _ in range(n)))
+
+class C2f_REPVGGOREPA(C2f):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        self.m = nn.ModuleList(Bottleneck_REPVGGOREPA(self.c, self.c, shortcut, g, k=(3, 3), e=1.0) for _ in range(n))
+        
 

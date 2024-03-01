@@ -1,3 +1,4 @@
+# picodetv1 summary: 655 layers, 905968 parameters, 905968 gradients, 8.7 GFLOPs
 # parameters
 nc: 80  # number of classes
 depth_multiple: 0.67  # model depth multiple

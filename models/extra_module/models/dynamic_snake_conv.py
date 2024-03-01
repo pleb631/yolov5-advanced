@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
-from models.common import Conv
+from models.common import *
+from models.extra_module.models.yolov8 import C2f
 
-__all__ = ['DySnakeConv']
+__all__ = ['DySnakeConv',"C3_DySnakeConv","C2f_DySnakeConv"]
 
 class DySnakeConv(nn.Module):
     def __init__(self, inc, ouc, k=3) -> None:
@@ -347,3 +348,28 @@ class DSC(object):
         y, x = self._coordinate_map_3D(offset, if_offset)
         deformed_feature = self._bilinear_interpolate_3D(input, y, x)
         return deformed_feature
+
+
+
+class Bottleneck_DySnakeConv(Bottleneck):
+    """Standard bottleneck with DySnakeConv."""
+
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5):  # ch_in, ch_out, shortcut, groups, kernels, expand
+        super().__init__(c1, c2, shortcut, g, k, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.cv2 = DySnakeConv(c_, c2, k[1])
+        self.cv3 = Conv(c2 * 3, c2, k=1)
+    def forward(self, x):
+        """'forward()' applies the YOLOv5 FPN to input data."""
+        return x + self.cv3(self.cv2(self.cv1(x))) if self.add else self.cv3(self.cv2(self.cv1(x)))
+    
+class C3_DySnakeConv(C3):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(Bottleneck_DySnakeConv(c_, c_, shortcut, g, k=(1, 3), e=1.0) for _ in range(n)))
+
+class C2f_DySnakeConv(C2f):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        self.m = nn.ModuleList(Bottleneck_DySnakeConv(self.c, self.c, shortcut, g, k=(3, 3), e=1.0) for _ in range(n))

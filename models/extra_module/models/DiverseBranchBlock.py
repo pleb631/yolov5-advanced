@@ -4,7 +4,10 @@ import torch.nn.functional as F
 import numpy as np
 from models.common import Conv, autopad
 
-__all__ = ['DiverseBranchBlock']
+from models.common import *
+from models.extra_module.models.yolov8 import C2f
+
+__all__ = ['DiverseBranchBlock',"C2f_DBB","C3_DBB"]
 
 def transI_fusebn(kernel, bn):
     gamma = bn.weight
@@ -259,3 +262,23 @@ class DiverseBranchBlock(nn.Module):
         self.init_gamma(0.0)
         if hasattr(self, "dbb_origin"):
             torch.nn.init.constant_(self.dbb_origin.bn.weight, 1.0)
+            
+
+
+class Bottleneck_DBB(Bottleneck):
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5):
+        super().__init__(c1, c2, shortcut, g, k, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.cv1 = DiverseBranchBlock(c1, c_, k[0], 1)
+        self.cv2 = DiverseBranchBlock(c_, c2, k[1], 1, groups=g)
+
+class C2f_DBB(C2f):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        self.m = nn.ModuleList(Bottleneck_DBB(self.c, self.c, shortcut, g, k=(3, 3), e=1.0) for _ in range(n))
+
+class C3_DBB(C3):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(Bottleneck_DBB(c_, c_, shortcut, g, k=(1, 3), e=1.0) for _ in range(n)))
