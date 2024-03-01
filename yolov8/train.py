@@ -46,7 +46,7 @@ ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 import yolov8.val as validate  # for end-of-epoch mAP
 from models.experimental import attempt_load
-from yolov8.yolo import Model
+from models.yolo import Model
 from utils.autobatch import check_train_batch_size
 from utils.callbacks import Callbacks
 from utils.dataloaders import create_dataloader
