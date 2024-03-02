@@ -543,21 +543,6 @@ def parse_model(d, ch):
             elif len(args) == 1:
                 m = timm.create_model(m, pretrained=args[0], features_only=True)
             c2 = m.feature_info.channels()
-        elif m in (
-            MobileNetV3s_1,
-            MobileNetV3s_2,
-            MobileNetV3s_3,
-            RegNety400_1,
-            RegNety400_2,
-            RegNety400_3,
-            mobilenet_v2_1,
-            mobilenet_v2_2,
-            mobilenet_v2_3,
-            convnext_tiny_1,
-            convnext_tiny_2,
-            convnext_tiny_3
-        ):
-            c2 = args[0]
         elif m in [
             fasternet_t0,
             lsknet_t,
@@ -573,6 +558,7 @@ def parse_model(d, ch):
             vanillanet_10,
             inceptionnext_tiny,
             CSWin_tiny,
+            shufflenet_v2_x0_5,
         ]:
             m = m(*args)
             c2 = m.channel
