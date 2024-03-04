@@ -7,7 +7,7 @@ from models.common import *
 from models.extra_module.attention import LSKA
 from models.extra_module.models.yolov8 import C2f
 
-__all__=["DySample", "CARAFE", "HWD","DSLK","ChannelAttention_HSFPN","Multiply","Add","SDI","ASPP","RFB","FocalModulation","SPPF_LSKA","C2f_DCNv2","C3_DCNv2"]
+__all__=["DySample", "CARAFE", "HWD","DSLK","ChannelAttention_HSFPN","Multiply","Add","SDI","ASPP","RFB","FocalModulation","SPPF_LSKA","C2f_DCNv2","C3_DCNv2","CSP_EDLAN"]
 
 
 ### DySample
@@ -586,3 +586,57 @@ class C2f_DCNv2(C2f):
         super().__init__(c1, c2, n, shortcut, g, e)
         self.m = nn.ModuleList(Bottleneck_DCNV2(self.c, self.c, shortcut, g, k=(3, 3), e=1.0) for _ in range(n))
     
+    
+### dualconv
+
+class DualConv(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=1, g=4):
+        """
+        Initialize the DualConv class.
+        :param input_channels: the number of input channels
+        :param output_channels: the number of output channels
+        :param stride: convolution stride
+        :param g: the value of G used in DualConv
+        """
+        super(DualConv, self).__init__()
+        # Group Convolution
+        self.gc = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, groups=g, bias=False)
+        # Pointwise Convolution
+        self.pwc = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False)
+
+    def forward(self, input_data):
+        """
+        Define how DualConv processes the input images or input feature maps.
+        :param input_data: input images or input feature maps
+        :return: return output feature maps
+        """
+        return self.gc(input_data) + self.pwc(input_data)
+
+class EDLAN(nn.Module):
+    def __init__(self, c, g=4) -> None:
+        super().__init__()
+        self.m = nn.Sequential(DualConv(c, c, 1, g=g), DualConv(c, c, 1, g=g))
+    
+    def forward(self, x):
+        return self.m(x)
+
+class CSP_EDLAN(nn.Module):
+    # CSP Efficient Dual Layer Aggregation Networks
+    def __init__(self, c1, c2, n=1, g=4, e=0.5) -> None:
+        super().__init__()
+        self.c = int(c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+        self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
+        self.m = nn.ModuleList(EDLAN(self.c, g=g) for _ in range(n))
+
+    def forward(self, x):
+        """Forward pass through C2f layer."""
+        y = list(self.cv1(x).chunk(2, 1))
+        y.extend(m(y[-1]) for m in self.m)
+        return self.cv2(torch.cat(y, 1))
+
+    def forward_split(self, x):
+        """Forward pass using split() instead of chunk()."""
+        y = list(self.cv1(x).split((self.c, self.c), 1))
+        y.extend(m(y[-1]) for m in self.m)
+        return self.cv2(torch.cat(y, 1))

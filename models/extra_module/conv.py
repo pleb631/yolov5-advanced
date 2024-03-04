@@ -3,7 +3,7 @@ from torch import nn
 import torch
 import numpy as np
 
-__all__ = ("LightConv", "RepConv",)
+__all__ = ("LightConv", "RepConv","ConvTranspose")
 class LightConv(nn.Module):
     """
     Light convolution with args(ch_in, ch_out, kernel).
@@ -22,6 +22,28 @@ class LightConv(nn.Module):
         return self.conv2(self.conv1(x))
     
 
+
+class ConvTranspose(nn.Module):
+    """Convolution transpose 2d layer."""
+
+    default_act = nn.SiLU()  # default activation
+
+    def __init__(self, c1, c2, k=2, s=2, p=0, bn=True, act=True):
+        """Initialize ConvTranspose2d layer with batch normalization and activation function."""
+        super().__init__()
+        self.conv_transpose = nn.ConvTranspose2d(c1, c2, k, s, p, bias=not bn)
+        self.bn = nn.BatchNorm2d(c2) if bn else nn.Identity()
+        self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
+
+    def forward(self, x):
+        """Applies transposed convolutions, batch normalization and activation to input."""
+        return self.act(self.bn(self.conv_transpose(x)))
+
+    def forward_fuse(self, x):
+        """Applies activation and convolution transpose operation to input."""
+        return self.act(self.conv_transpose(x))
+    
+    
 class RepConv(nn.Module):
     """
     RepConv is a basic rep-style block, including training and deploy status.
