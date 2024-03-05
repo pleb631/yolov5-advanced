@@ -27,3 +27,4 @@ from .yolov6 import *
 from .yolov7 import *
 from .yolov8 import *
 from .yolov9 import *
+from .Goldyolo import *
