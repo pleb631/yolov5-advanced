@@ -7,7 +7,7 @@ from models.common import Conv
 from models.extra_module.conv import RepConv
 
 
-__all__ = ["RepBlock", "BiFusion","SimSPPF","SimCSPSPPF"]
+__all__ = ["RepBlock", "BiFusion","SimSPPF","SimCSPSPPF","BepC3"]
 
 class BottleRep(nn.Module):
     def __init__(self, in_channels, out_channels, basic_block=RepConv, weight=False):
@@ -161,3 +161,28 @@ class SimCSPSPPF(nn.Module):
         y1 = self.cv6(self.cv5(torch.cat((x1,x2,x3, self.m(x3)),1)))
         y2 = self.cv2(x)
         return self.cv7(torch.cat((y1, y2), dim=1))
+
+
+
+class BepC3(nn.Module):
+    '''Beer-mug RepC3 Block'''
+    
+    def __init__(self, in_channels, out_channels, n=1, e=0.5, concat=True,
+                 block=RepConv):  # ch_in, ch_out, number, shortcut, groups, expansion
+        super().__init__()
+        c_ = int(out_channels * e)  # hidden channels
+        self.cv1 = Conv(in_channels, c_, 1, 1)
+        self.cv2 = Conv(in_channels, c_, 1, 1)
+        self.cv3 = Conv(2 * c_, out_channels, 1, 1)
+
+        
+        self.m = RepBlock(in_channels=c_, out_channels=c_, n=n, block=BottleRep, basic_block=block)
+        self.concat = concat
+        if not concat:
+            self.cv3 = Conv(c_, out_channels, 1, 1)
+    
+    def forward(self, x):
+        if self.concat is True:
+            return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
+        else:
+            return self.cv3(self.m(self.cv1(x)))

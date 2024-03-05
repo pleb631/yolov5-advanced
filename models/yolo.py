@@ -435,7 +435,7 @@ def parse_model(d, ch):
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
-            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SimCSPSPPF,C2f,SPPF_LSKA,HWD,RepBlock,CSPStage,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,RepNCSPELAN4,DPBlock,ES_Bottleneck,Dense,conv_bn_relu_maxpool,Shuffle_Block,conv_bn_act,SEAM,MultiSEAM,RFEM,RepConv,CSP_EDLAN
+            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SimCSPSPPF,C2f,SPPF_LSKA,HWD,RepBlock,CSPStage,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,RepNCSPELAN4,DPBlock,ES_Bottleneck,Dense,conv_bn_relu_maxpool,Shuffle_Block,conv_bn_act,SEAM,MultiSEAM,RFEM,RepConv,CSP_EDLAN,BepC3
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
@@ -444,7 +444,7 @@ def parse_model(d, ch):
             
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x,C2f,CSPStage,RepBlock,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,SEAM,MultiSEAM}:
+            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x,C2f,CSPStage,RepBlock,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,SEAM,MultiSEAM,BepC3}:
                 args.insert(2, n)  # number of repeats
                 n = 1
                 
@@ -492,26 +492,25 @@ def parse_model(d, ch):
             c2 = ch[f[-1]]
         #-----------------END------------
         # --------------GOLD-YOLO--------------
-        elif m in {SimFusion_4in, AdvPoolFusion}:
+        elif m in { AdvPoolFusion,SimFusion_4in,PyramidPoolAgg}:
             c2 = sum(ch[x] for x in f)
         elif m is SimFusion_3in:
-            c2 = args[0]
-            if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
-                c2 = make_divisible(c2 * gw, ch_mul)
-            args = [[ch[f_] for f_ in f], c2]
-        elif m is IFM:
+            c1 = ch[f[-2]]
+            c2 = make_divisible(args[0] * gw, ch_mul)
+            args=[c1,c2]
+        elif m in {IFM,TopBasicLayer}:
             c1 = ch[f]
-            c2 = sum(args[0])
-            args = [c1, *args]
+            c2_list = [make_divisible(args[0][0] * gw, ch_mul),make_divisible(args[0][1] * gw, ch_mul)]
+            c2 = sum(c2_list)
+            args = [c1, c2_list,*args[1:]]
         elif m is InjectionMultiSum_Auto_pool:
             c1 = ch[f[0]]
             c2 = args[0]
-            args = [c1, *args]
-        elif m is PyramidPoolAgg:
-            c2 = args[0]
-            args = [sum([ch[f_] for f_ in f]), *args]
-        elif m is TopBasicLayer:
-            c2 = sum(args[1])
+            c2 = make_divisible(c2 * gw, ch_mul)
+            c3 = [make_divisible(args[1][0] * gw, ch_mul),make_divisible(args[1][1] * gw, ch_mul)]
+            args = [c1, c2, c3, *args[2:]]
+        # elif m is TopBasicLayer:
+        #     args = [ch[f],*args]
         # --------------GOLD-YOLO--------------
         elif m in {ASFF_2, ASFF_3}:
             c2 = args[0]

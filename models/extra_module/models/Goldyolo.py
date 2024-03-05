@@ -30,11 +30,9 @@ def get_avg_pool():
     return avg_pool
 
 class SimFusion_3in(nn.Module):
-    def __init__(self, in_channel_list, out_channels):
+    def __init__(self, in_channel,out_channels):
         super().__init__()
-        self.cv1 = Conv(in_channel_list[0], out_channels, act=nn.ReLU()) if in_channel_list[0] != out_channels else nn.Identity()
-        self.cv2 = Conv(in_channel_list[1], out_channels, act=nn.ReLU()) if in_channel_list[1] != out_channels else nn.Identity()
-        self.cv3 = Conv(in_channel_list[2], out_channels, act=nn.ReLU()) if in_channel_list[2] != out_channels else nn.Identity()
+        self.cv1 = Conv(in_channel, out_channels, 1, 1)
         self.cv_fuse = Conv(out_channels * 3, out_channels, act=nn.ReLU())
         self.downsample = nn.functional.adaptive_avg_pool2d
     
@@ -46,9 +44,9 @@ class SimFusion_3in(nn.Module):
             self.downsample = onnx_AdaptiveAvgPool2d
             output_size = np.array([H, W])
         
-        x0 = self.cv1(self.downsample(x[0], output_size))
-        x1 = self.cv2(x[1])
-        x2 = self.cv3(F.interpolate(x[2], size=(H, W), mode='bilinear', align_corners=False))
+        x0 = self.downsample(x[0], output_size)
+        x1 = self.cv1(x[1])
+        x2 = F.interpolate(x[2], size=(H, W), mode='bilinear', align_corners=False)
         return self.cv_fuse(torch.cat((x0, x1, x2), dim=1))
 
 class SimFusion_4in(nn.Module):
@@ -146,14 +144,14 @@ def get_shape(tensor):
     return shape
 
 class PyramidPoolAgg(nn.Module):
-    def __init__(self, inc, ouc, stride, pool_mode='torch'):
+    def __init__(self, stride, pool_mode='torch'):
         super().__init__()
         self.stride = stride
         if pool_mode == 'torch':
             self.pool = nn.functional.adaptive_avg_pool2d
         elif pool_mode == 'onnx':
             self.pool = onnx_AdaptiveAvgPool2d
-        self.conv = Conv(inc, ouc)
+  
     
     def forward(self, inputs):
         B, C, H, W = get_shape(inputs[-1])
@@ -170,7 +168,7 @@ class PyramidPoolAgg(nn.Module):
         
         out = [self.pool(inp, output_size) for inp in inputs]
         
-        return self.conv(torch.cat(out, dim=1))
+        return torch.cat(out, dim=1)
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
@@ -276,7 +274,7 @@ class top_Block(nn.Module):
 
 class TopBasicLayer(nn.Module):
     def __init__(self, embedding_dim, ouc_list, block_num=2, key_dim=8, num_heads=4,
-                 mlp_ratio=4., attn_ratio=2., drop=0., attn_drop=0., drop_path=0.):
+                 mlp_ratio=1., attn_ratio=2., drop=0., attn_drop=0., drop_path=0.):
         super().__init__()
         self.block_num = block_num
         
