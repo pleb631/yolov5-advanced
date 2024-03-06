@@ -1,5 +1,5 @@
 # YOLOv5 🚀 by Ultralytics, AGPL-3.0 license
-# YOLOv5s_goldyolo summary: 314 layers, 8822435 parameters, 7798275 gradients, 17.4 GFLOPs
+# YOLOv5s_goldyolo summary: 341 layers, 8909341 parameters, 8660221 gradients, 17.5 GFLOPs
 # Parameters
 nc: 80 # number of classes
 depth_multiple: 0.33 # model depth multiple
@@ -32,25 +32,25 @@ head:
     [-1, 1, IFM, [[256, 128]]], # 11
    
     [9, 1, Conv, [256, 1, 1]], # 12
-    [[4, 6, -1], 1, SimFusion_3in, [256]], # 13
+    [[4, 6, -1], 1, SimFusion_3in, []], # 13
     [[-1, 11], 1, InjectionMultiSum_Auto_pool, [256, [256, 128], 0]], # 14
     [-1, 12, C3, [256]], # 15
 
     [6, 1, Conv, [128, 1, 1]], # 16
-    [[2, 4, -1], 1, SimFusion_3in, [128]], # 17
+    [[2, 4, -1], 1, SimFusion_3in, []], # 17
     [[-1, 11], 1, InjectionMultiSum_Auto_pool, [128, [256, 128], 1]], # 18
-    [-1, 12, BepC3, [128]], # 19
+    [-1, 12, C3, [128]], # 19
 
     [[19, 15, 9], 1, PyramidPoolAgg, [2]], # 20
     [-1, 1, TopBasicLayer, [[256, 512]]], # 21
 
     [[19, 16], 1, AdvPoolFusion, []], # 22
     [[-1, 21], 1, InjectionMultiSum_Auto_pool, [256, [256, 512], 0]], # 23
-    [-1, 12, BepC3, [256]], # 24
+    [-1, 12, C3, [256]], # 24
 
     [[-1, 12], 1, AdvPoolFusion, []], # 25
     [[-1, 21], 1, InjectionMultiSum_Auto_pool, [512, [256, 512], 1]], # 26
-    [-1, 12, BepC3, [512]], # 27
+    [-1, 12, C3, [512]], # 27
 
     [[19, 24, 27], 1, Detect, [nc,anchors]], # 28
   ]

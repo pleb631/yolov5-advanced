@@ -496,7 +496,7 @@ def parse_model(d, ch):
             c2 = sum(ch[x] for x in f)
         elif m is SimFusion_3in:
             c1 = ch[f[-2]]
-            c2 = make_divisible(args[0] * gw, ch_mul)
+            c2 = ch[f[-1]]
             args=[c1,c2]
         elif m in {IFM,TopBasicLayer}:
             c1 = ch[f]

@@ -220,7 +220,7 @@ class yolov8Detect_Efficient(yolov8Detect):
         shape = x[0].shape  # BCHW
         x_cat = torch.cat([xi.view(shape[0], self.no, -1) for xi in x], 2)
         if self.dynamic or self.shape != shape:
-            self.anchors, self.strides = (x.transpose(0, 1) for x in make_anchors(x, self.stride, 0.5))
+            self.anchors1, self.strides = (x.transpose(0, 1) for x in make_anchors(x, self.stride, 0.5))
             self.shape = shape
 
         if self.export and self.format in ("saved_model", "pb", "tflite", "edgetpu", "tfjs"):  # avoid TF FlexSplitV ops
@@ -237,7 +237,7 @@ class yolov8Detect_Efficient(yolov8Detect):
             img_w = shape[3]
             img_size = torch.tensor([img_w, img_h, img_w, img_h], device=box.device).reshape(1, 4, 1)
             norm = self.strides / (self.stride[0] * img_size)
-            dbox = dist2bbox(self.dfl(box) * norm, self.anchors.unsqueeze(0) * norm[:, :2], xywh=True, dim=1)
+            dbox = dist2bbox(self.dfl(box) * norm, self.anchors1.unsqueeze(0) * norm[:, :2], xywh=True, dim=1)
 
         y = torch.cat((dbox, cls.sigmoid()), 1)
         return y if self.export else (y, x)
