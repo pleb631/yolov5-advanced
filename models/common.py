@@ -164,7 +164,7 @@ class TransformerBlock(nn.Module):
 
 class Bottleneck(nn.Module):
     # Standard bottleneck
-    def __init__(self, c1, c2, shortcut=True, g=1, e=0.5):
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(1, 3), e=0.5):
         """Initializes a standard bottleneck layer with optional shortcut and group convolution, supporting channel
         expansion.
         """
