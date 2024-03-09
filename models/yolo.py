@@ -213,7 +213,7 @@ class BaseModel(nn.Module):
             elif isinstance(m, RepConv):
                 m.fuse_convs()
                 m.forward = m.forward_fuse
-            elif isinstance(m, DiverseBranchBlock):
+            elif isinstance(m, DiverseBranchBlock)or isinstance(m, RepVGGBlock):
                 m.switch_to_deploy()
             if type(m) is Shuffle_Block:
                 m.fuse()
@@ -435,7 +435,7 @@ def parse_model(d, ch):
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
-            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SimCSPSPPF,C2f,SPPF_LSKA,HWD,RepBlock,CSPStage,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,RepNCSPELAN4,DPBlock,ES_Bottleneck,Dense,conv_bn_relu_maxpool,Shuffle_Block,conv_bn_act,SEAM,MultiSEAM,RFEM,RepConv,CSP_EDLAN,BepC3
+            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SimCSPSPPF,C2f,SPPF_LSKA,HWD,RepBlock,CSPStage,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,RepNCSPELAN4,DPBlock,ES_Bottleneck,Dense,conv_bn_relu_maxpool,Shuffle_Block,conv_bn_act,SEAM,MultiSEAM,RFEM,RepConv,CSP_EDLAN,BepC3,RepVGGBlock
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
@@ -490,6 +490,11 @@ def parse_model(d, ch):
             c2 = ch[f[0]]
         elif m is Add:
             c2 = ch[f[-1]]
+        #-----------------END------------
+        #---------------v5lite-----------
+        elif m in {DWConvblock,CBH,LC_Block}:
+            c1, c2 = ch[f], args[0]
+            args = [c1, c2, *args[1:]]
         #-----------------END------------
         # --------------GOLD-YOLO--------------
         elif m in { AdvPoolFusion,SimFusion_4in,PyramidPoolAgg}:

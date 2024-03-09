@@ -19,6 +19,30 @@
 | unireplknet_a.yaml | UniRepLKNet(2023) | 7.7 | 17.6 |  |
 | vanillanet_10.yaml | vanillanet(2023) | 93.3 | 290.4 |  |
 
+### timm
+
+| **yaml** | **原型** | **param/M** | **GFLOPs** | **备注** |
+|---|---|---|---|---|
+legacy_xception||12.2|81.2|
+ese_vovnet19b_slim_dw||5.1|13.8|
+selecsls42||23|53.2|
+skresnet18||15.1|36.5|
+rexnet_100||6.5|13.1|
+resnest14d||16.1|56.4|
+res2net50_14w_8s||30.5|79.8|
+repghostnet_050||3.2|6.6|
+repvgg_a0||13.0|32.4|
+regnetz_005||9.1|14.9|
+spnasnet_100||6.1|11.2|
+eca_nfnet_l0||30|11.8|
+mnasnet_050||3.3|7.4|
+mobileone_s0||8.9|24.5|
+mobilenetv2_035||3.4|6.6|
+hrnet_w18_small_v2||10.0|37.7|
+ghostnetv2_100||4.4|8.6|
+efficientnet_b0||7.0|12.6|
+edgenext_small||8.7|21.9|
+hgnetv2_b0||6.6|13.1|
 
 ## neck
 
