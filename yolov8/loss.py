@@ -8,7 +8,7 @@ from ultralytics.utils.loss import bbox2dist
 from utils.metrics import bbox_iou, wasserstein_loss
 from utils.loss import FocalLoss_YOLO, VarifocalLoss_YOLO, QualityfocalLoss_YOLO, EMASlideLoss, SlideLoss,RepLoss
 from .atss import ATSSAssigner, generate_anchors
-
+from utils.torch_utils import de_parallel
 class BboxLoss(nn.Module):
     """Criterion class for computing training losses during training."""
 
@@ -88,7 +88,7 @@ class v8DetectionLoss:
         device = next(model.parameters()).device  # get model device
         #h = model.args  # hyperparameters
 
-        m = model.model[-1]  # Detect() module
+        m = de_parallel(model).model[-1]  # Detect() module
         self.bce = nn.BCEWithLogitsLoss(reduction="none")
         # self.bce = EMASlideLoss(nn.BCEWithLogitsLoss(reduction='none'))  # Exponential Moving Average Slide Loss
         # self.bce = SlideLoss(nn.BCEWithLogitsLoss(reduction='none')) # Slide Loss

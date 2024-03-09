@@ -63,6 +63,12 @@ def autopad(k, p=None, d=1):
 
     `k`: kernel, `p`: padding, `d`: dilation.
     """
+def autopad(k, p=None, d=1):
+    """
+    Pads kernel to 'same' output shape, adjusting for optional dilation; returns padding size.
+
+    `k`: kernel, `p`: padding, `d`: dilation.
+    """
     if d > 1:
         k = d * (k - 1) + 1 if isinstance(k, int) else [d * (x - 1) + 1 for x in k]  # actual kernel-size
     if p is None:
@@ -158,7 +164,7 @@ class TransformerBlock(nn.Module):
 
 class Bottleneck(nn.Module):
     # Standard bottleneck
-    def __init__(self, c1, c2, shortcut=True, g=1, k=(1, 3),e=0.5):
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(1, 3), e=0.5):
         """Initializes a standard bottleneck layer with optional shortcut and group convolution, supporting channel
         expansion.
         """
