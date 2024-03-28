@@ -51,3 +51,4 @@ setuptools>=65.5.1 # Snyk vulnerability fix
 #
 timm
 einops
+wheel>=0.38.0 # not directly required, pinned by Snyk to avoid a vulnerability
