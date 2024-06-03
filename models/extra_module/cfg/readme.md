@@ -16,6 +16,7 @@
 | poolformer_s12.yaml | poolformer(2022) | 15.1 | 36.3 |  |
 | RegNety400.yaml | RegNet(2020) | 7.7 | 14.0 |  |
 | RepHGNetv2.yaml | HGNetv2(2023) | 7.6 | 16.8 | RT-DETR主干 |
+| starnet_s050.yaml ||3.6|7.5||
 | unireplknet_a.yaml | UniRepLKNet(2023) | 7.7 | 17.6 |  |
 | vanillanet_10.yaml | vanillanet(2023) | 93.3 | 290.4 |  |
 

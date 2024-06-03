@@ -29,3 +29,4 @@ from .yolov8 import *
 from .yolov9 import *
 from .Goldyolo import *
 from .repvgg import *
+from .starnet import *

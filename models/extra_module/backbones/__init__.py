@@ -12,4 +12,5 @@ from .unireplknet import *
 from .inceptionnext import *
 from .VanillaNet import *
 from .CSwomTramsformer import *
+from .starnet import *
 from .yolov10 import *
