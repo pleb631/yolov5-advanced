@@ -118,7 +118,7 @@ class RepConv(nn.Module):
         t = (gamma / std).reshape(-1, 1, 1, 1)
         return kernel * t, beta - running_mean * gamma / std
 
-    def fuse_convs(self):
+    def fuse(self):
         """Combines two convolution layers into a single layer and removes unused attributes from the class."""
         if hasattr(self, "conv"):
             return
@@ -145,6 +145,7 @@ class RepConv(nn.Module):
             self.__delattr__("bn")
         if hasattr(self, "id_tensor"):
             self.__delattr__("id_tensor")
+        self.forward = self.forward_fuse
 
 class GSConv(nn.Module):
     # GSConv https://github.com/AlanLi1997/slim-neck-by-gsconv

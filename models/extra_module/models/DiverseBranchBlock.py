@@ -220,7 +220,7 @@ class DiverseBranchBlock(nn.Module):
 
         return transII_addbranch((k_origin, k_1x1, k_1x1_kxk_merged, k_1x1_avg_merged), (b_origin, b_1x1, b_1x1_kxk_merged, b_1x1_avg_merged))
 
-    def switch_to_deploy(self):
+    def fuse(self):
         if hasattr(self, 'dbb_reparam'):
             return
         kernel, bias = self.get_equivalent_kernel_bias()

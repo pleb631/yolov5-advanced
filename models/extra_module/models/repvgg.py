@@ -123,7 +123,7 @@ class RepVGGBlock(nn.Module):
         t = (gamma / std).reshape(-1, 1, 1, 1)
         return kernel * t, beta - running_mean * gamma / std
 
-    def switch_to_deploy(self):
+    def fuse(self):
         if hasattr(self, 'rbr_reparam'):
             return
         kernel, bias = self.get_equivalent_kernel_bias()

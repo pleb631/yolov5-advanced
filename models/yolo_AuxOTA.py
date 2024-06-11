@@ -24,7 +24,8 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 if platform.system() != "Windows":
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-from .extra_module import *
+
+from models.extra_module import *
 from models.common import (
     C3,
     C3SPP,
@@ -51,14 +52,7 @@ from models.common import (
 )
 from models.experimental import MixConv2d
 from utils.autoanchor import check_anchor_order
-from utils.general import (
-    LOGGER,
-    check_version,
-    check_yaml,
-    colorstr,
-    make_divisible,
-    print_args,
-)
+from utils.general import LOGGER, check_version, check_yaml, colorstr, make_divisible, print_args
 from utils.plots import feature_visualization
 from utils.torch_utils import (
     fuse_conv_and_bn,
@@ -82,7 +76,8 @@ class Detect(nn.Module):
     dynamic = False  # force grid reconstruction
     export = False  # export mode
 
-    def __init__(self, nc=80, anchors=(), ch=(), inplace=True):  # detection layer
+    def __init__(self, nc=80, anchors=(), ch=(), inplace=True):
+        """Initializes YOLOv5 detection layer with specified classes, anchors, channels, and inplace operations."""
         super().__init__()
         self.nc = nc  # number of classes
         self.no = nc + 5  # number of outputs per anchor
@@ -90,46 +85,29 @@ class Detect(nn.Module):
         self.na = len(anchors[0]) // 2  # number of anchors
         self.grid = [torch.empty(0) for _ in range(self.nl)]  # init grid
         self.anchor_grid = [torch.empty(0) for _ in range(self.nl)]  # init anchor grid
-        self.register_buffer(
-            "anchors", torch.tensor(anchors).float().view(self.nl, -1, 2)
-        )  # shape(nl,na,2)
-        self.m = nn.ModuleList(
-            nn.Conv2d(x, self.no * self.na, 1) for x in ch[: self.nl]
-        )  # output conv
-        self.m2 = nn.ModuleList(
-            nn.Conv2d(x, self.no * self.na, 1) for x in ch[self.nl :]
-        )  # output conv
+        self.register_buffer("anchors", torch.tensor(anchors).float().view(self.nl, -1, 2))  # shape(nl,na,2)
+        self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch[: self.nl])  # output conv
+        self.m2 = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch[self.nl :])  # output conv
         self.inplace = inplace  # use inplace ops (e.g. slice assignment)
 
     def forward(self, x):
+        """Processes input through YOLOv5 layers, altering shape for detection: `x(bs, 3, ny, nx, 85)`."""
         z = []  # inference output
         for i in range(self.nl):
             x[i] = self.m[i](x[i])  # conv
             bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
-            x[i] = (
-                x[i]
-                .view(bs, self.na, self.no, ny, nx)
-                .permute(0, 1, 3, 4, 2)
-                .contiguous()
-            )
+            x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
             x[i + self.nl] = self.m2[i](x[i + self.nl])  # conv
             bs, _, ny, nx = x[i + self.nl].shape
-            x[i + self.nl] = (
-                x[i + self.nl]
-                .view(bs, self.na, self.no, ny, nx)
-                .permute(0, 1, 3, 4, 2)
-                .contiguous()
-            )
+            x[i + self.nl] = (x[i + self.nl].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous())
 
             if not self.training:  # inference
                 if self.dynamic or self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     self.grid[i], self.anchor_grid[i] = self._make_grid(nx, ny, i)
 
                 if isinstance(self, Segment):  # (boxes + masks)
-                    xy, wh, conf, mask = x[i].split(
-                        (2, 2, self.nc + 1, self.no - self.nc - 5), 4
-                    )
+                    xy, wh, conf, mask = x[i].split((2, 2, self.nc + 1, self.no - self.nc - 5), 4)
                     xy = (xy.sigmoid() * 2 + self.grid[i]) * self.stride[i]  # xy
                     wh = (wh.sigmoid() * 2) ** 2 * self.anchor_grid[i]  # wh
                     y = torch.cat((xy, wh, conf.sigmoid(), mask), 4)
@@ -140,74 +118,60 @@ class Detect(nn.Module):
                     y = torch.cat((xy, wh, conf), 4)
                 z.append(y.view(bs, self.na * nx * ny, self.no))
 
-        return (
-            x
-            if self.training
-            else (torch.cat(z, 1),)
-            if self.export
-            else (torch.cat(z, 1), x[: self.nl])
-        )
+        return x if self.training else (torch.cat(z, 1),) if self.export else (torch.cat(z, 1), x[: self.nl])
 
-    def _make_grid(
-        self, nx=20, ny=20, i=0, torch_1_10=check_version(torch.__version__, "1.10.0")
-    ):
+    def _make_grid(self, nx=20, ny=20, i=0, torch_1_10=check_version(torch.__version__, "1.10.0")):
+        """Generates a mesh grid for anchor boxes with optional compatibility for torch versions < 1.10."""
         d = self.anchors[i].device
         t = self.anchors[i].dtype
         shape = 1, self.na, ny, nx, 2  # grid shape
         y, x = torch.arange(ny, device=d, dtype=t), torch.arange(nx, device=d, dtype=t)
-        yv, xv = (
-            torch.meshgrid(y, x, indexing="ij") if torch_1_10 else torch.meshgrid(y, x)
-        )  # torch>=0.7 compatibility
-        grid = (
-            torch.stack((xv, yv), 2).expand(shape) - 0.5
-        )  # add grid offset, i.e. y = 2.0 * x - 0.5
-        anchor_grid = (
-            (self.anchors[i] * self.stride[i]).view((1, self.na, 1, 1, 2)).expand(shape)
-        )
+        yv, xv = torch.meshgrid(y, x, indexing="ij") if torch_1_10 else torch.meshgrid(y, x)  # torch>=0.7 compatibility
+        grid = torch.stack((xv, yv), 2).expand(shape) - 0.5  # add grid offset, i.e. y = 2.0 * x - 0.5
+        anchor_grid = (self.anchors[i] * self.stride[i]).view((1, self.na, 1, 1, 2)).expand(shape)
         return grid, anchor_grid
 
 
 class Segment(Detect):
     # YOLOv5 Segment head for segmentation models
     def __init__(self, nc=80, anchors=(), nm=32, npr=256, ch=(), inplace=True):
+        """Initializes YOLOv5 Segment head with options for mask count, protos, and channel adjustments."""
         super().__init__(nc, anchors, ch, inplace)
         self.nm = nm  # number of masks
         self.npr = npr  # number of protos
         self.no = 5 + nc + self.nm  # number of outputs per anchor
-        self.m = nn.ModuleList(
-            nn.Conv2d(x, self.no * self.na, 1) for x in ch
-        )  # output conv
+        self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
         self.proto = Proto(ch[0], self.npr, self.nm)  # protos
         self.detect = Detect.forward
 
     def forward(self, x):
+        """Processes input through the network, returning detections and prototypes; adjusts output based on
+        training/export mode.
+        """
         p = self.proto(x[0])
         x = self.detect(self, x)
-        return (
-            (x, p) if self.training else (x[0], p) if self.export else (x[0], p, x[1])
-        )
+        return (x, p) if self.training else (x[0], p) if self.export else (x[0], p, x[1])
 
 
 class BaseModel(nn.Module):
-    # YOLOv5 base model
+    """YOLOv5 base model."""
+
     def forward(self, x, profile=False, visualize=False):
-        return self._forward_once(
-            x, profile, visualize
-        )  # single-scale inference, train
+        """Executes a single-scale inference or training pass on the YOLOv5 base model, with options for profiling and
+        visualization.
+        """
+        return self._forward_once(x, profile, visualize)  # single-scale inference, train
 
     def _forward_once(self, x, profile=False, visualize=False):
+        """Performs a forward pass on the YOLOv5 model, enabling profiling and feature visualization options."""
         y, dt = [], []  # outputs
         for m in self.model:
             if m.f != -1:  # if not from previous layer
-                x = (
-                    y[m.f]
-                    if isinstance(m.f, int)
-                    else [x if j == -1 else y[j] for j in m.f]
-                )  # from earlier layers
+                x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
             if profile:
                 self._profile_one_layer(m, x, dt)
             x = m(x)  # run
-            if hasattr(m, 'isBackbone'):
+            if hasattr(m, "isBackbone"):
                 for _ in range(5 - len(x)):
                     x.insert(0, None)
                 for i_idx, i in enumerate(x):
@@ -226,6 +190,7 @@ class BaseModel(nn.Module):
         return x
 
     def _profile_one_layer(self, m, x, dt):
+        """Profiles a single layer's performance by computing GFLOPs, execution time, and parameters."""
         c = m == self.model[-1]  # is final layer, copy input as inplace fix
         o = (
             thop.profile(m, inputs=(x.copy() if c else x,), verbose=False)[0] / 1e9 * 2
@@ -242,24 +207,31 @@ class BaseModel(nn.Module):
         if c:
             LOGGER.info(f"{sum(dt):10.2f} {'-':>10s} {'-':>10s}  Total")
 
-    def fuse(self):  # fuse model Conv2d() + BatchNorm2d() layers
+    def fuse(self):
+        """Fuses Conv2d() and BatchNorm2d() layers in the model to improve inference speed."""
         LOGGER.info("Fusing layers... ")
         for m in self.model.modules():
             if isinstance(m, (Conv, DWConv)) and hasattr(m, "bn"):
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
                 delattr(m, "bn")  # remove batchnorm
                 m.forward = m.forward_fuse  # update forward
+            elif isinstance(m, (RepConv,DiverseBranchBlock,RepVGGBlock,Shuffle_Block,RepVGGDW)):
+                m.fuse()
+
         self.info()
         return self
 
-    def info(self, verbose=False, img_size=640):  # print model information
+    def info(self, verbose=False, img_size=640):
+        """Prints model information given verbosity and image size, e.g., `info(verbose=True, img_size=640)`."""
         model_info(self, verbose, img_size)
 
     def _apply(self, fn):
-        # Apply to(), cpu(), cuda(), half() to model tensors that are not parameters or registered buffers
+        """Applies transformations like to(), cpu(), cuda(), half() to model tensors excluding parameters or registered
+        buffers.
+        """
         self = super()._apply(fn)
         m = self.model[-1]  # Detect()
-        if isinstance(m, (Detect, Segment)):
+        if isinstance(m, (Detect, Segment,)):
             m.stride = fn(m.stride)
             m.grid = list(map(fn, m.grid))
             if isinstance(m.anchor_grid, list):
@@ -269,9 +241,8 @@ class BaseModel(nn.Module):
 
 class DetectionModel(BaseModel):
     # YOLOv5 detection model
-    def __init__(
-        self, cfg="yolov5s.yaml", ch=3, nc=None, anchors=None
-    ):  # model, input channels, number of classes
+    def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None, anchors=None):
+        """Initializes YOLOv5 model with configuration file, input channels, number of classes, and custom anchors."""
         super().__init__()
         if isinstance(cfg, dict):
             self.yaml = cfg  # model dict
@@ -290,28 +261,23 @@ class DetectionModel(BaseModel):
         if anchors:
             LOGGER.info(f"Overriding model.yaml anchors with anchors={anchors}")
             self.yaml["anchors"] = round(anchors)  # override yaml value
-        self.model, self.save = parse_model(
-            deepcopy(self.yaml), ch=[ch]
-        )  # model, savelist
+        self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
         self.names = [str(i) for i in range(self.yaml["nc"])]  # default names
         self.inplace = self.yaml.get("inplace", True)
-
+        
+        self.loss_category = self.yaml.get('loss', None)
+        
         # Build strides, anchors
         m = self.model[-1]  # Detect()
         if isinstance(m, (Detect, Segment)):
             s = 640  # 2x min stride
             m.inplace = self.inplace
-            forward = (
-                lambda x: self.forward(x)[0]
-                if isinstance(m, Segment)
-                else self.forward(x)
-            )
-            m.stride = torch.tensor(
-                [s / x.shape[-2] for x in forward(torch.zeros(1, ch, s, s))][:3]
-            )  # forward
+            forward = lambda x: self.forward(x)[0] if isinstance(m, Segment) else self.forward(x)
+            m.stride = torch.tensor([s / x.shape[-2] for x in forward(torch.zeros(2, ch, s, s))])  # forward
             check_anchor_order(m)
             m.anchors /= m.stride.view(-1, 1, 1)
             self.stride = m.stride
+            print(m.stride)
             self._initialize_biases()  # only run once
 
         # Init weights, biases
@@ -320,13 +286,13 @@ class DetectionModel(BaseModel):
         LOGGER.info("")
 
     def forward(self, x, augment=False, profile=False, visualize=False):
+        """Performs single-scale or augmented inference and may include profiling or visualization."""
         if augment:
             return self._forward_augment(x)  # augmented inference, None
-        return self._forward_once(
-            x, profile, visualize
-        )  # single-scale inference, train
+        return self._forward_once(x, profile, visualize)  # single-scale inference, train
 
     def _forward_augment(self, x):
+        """Performs augmented inference across different scales and flips, returning combined detections."""
         img_size = x.shape[-2:]  # height, width
         s = [1, 0.83, 0.67]  # scales
         f = [None, 3, None]  # flips (2-ud, 3-lr)
@@ -341,7 +307,7 @@ class DetectionModel(BaseModel):
         return torch.cat(y, 1), None  # augmented inference, train
 
     def _descale_pred(self, p, flips, scale, img_size):
-        # de-scale predictions following augmented inference (inverse operation)
+        """De-scales predictions from augmented inference, adjusting for flips and image size."""
         if self.inplace:
             p[..., :4] /= scale  # de-scale
             if flips == 2:
@@ -349,11 +315,7 @@ class DetectionModel(BaseModel):
             elif flips == 3:
                 p[..., 0] = img_size[1] - p[..., 0]  # de-flip lr
         else:
-            x, y, wh = (
-                p[..., 0:1] / scale,
-                p[..., 1:2] / scale,
-                p[..., 2:4] / scale,
-            )  # de-scale
+            x, y, wh = p[..., 0:1] / scale, p[..., 1:2] / scale, p[..., 2:4] / scale  # de-scale
             if flips == 2:
                 y = img_size[0] - y  # de-flip ud
             elif flips == 3:
@@ -362,7 +324,9 @@ class DetectionModel(BaseModel):
         return p
 
     def _clip_augmented(self, y):
-        # Clip YOLOv5 augmented inference tails
+        """Clips augmented inference tails for YOLOv5 models, affecting first and last tensors based on grid points and
+        layer counts.
+        """
         nl = self.model[-1].nl  # number of detection layers (P3-P5)
         g = sum(4**x for x in range(nl))  # grid points
         e = 1  # exclude layer count
@@ -372,21 +336,19 @@ class DetectionModel(BaseModel):
         y[-1] = y[-1][:, i:]  # small
         return y
 
-    def _initialize_biases(
-        self, cf=None
-    ):  # initialize biases into Detect(), cf is class frequency
-        # https://arxiv.org/abs/1708.02002 section 3.3
+    def _initialize_biases(self, cf=None):
+        """
+        Initializes biases for YOLOv5's Detect() module, optionally using class frequencies (cf).
+
+        For details see https://arxiv.org/abs/1708.02002 section 3.3.
+        """
         # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
         m = self.model[-1]  # Detect() module
         for mi, s in zip(m.m, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
-            b.data[:, 4] += math.log(
-                8 / (640 / s) ** 2
-            )  # obj (8 objects per 640 image)
+            b.data[:, 4] += math.log(8 / (640 / s) ** 2)  # obj (8 objects per 640 image)
             b.data[:, 5 : 5 + m.nc] += (
-                math.log(0.6 / (m.nc - 0.99999))
-                if cf is None
-                else torch.log(cf / cf.sum())
+                math.log(0.6 / (m.nc - 0.99999)) if cf is None else torch.log(cf / cf.sum())
             )  # cls
             mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
@@ -397,28 +359,28 @@ Model = DetectionModel  # retain YOLOv5 'Model' class for backwards compatibilit
 class SegmentationModel(DetectionModel):
     # YOLOv5 segmentation model
     def __init__(self, cfg="yolov5s-seg.yaml", ch=3, nc=None, anchors=None):
+        """Initializes a YOLOv5 segmentation model with configurable params: cfg (str) for configuration, ch (int) for channels, nc (int) for num classes, anchors (list)."""
         super().__init__(cfg, ch, nc, anchors)
 
 
 class ClassificationModel(BaseModel):
     # YOLOv5 classification model
-    def __init__(
-        self, cfg=None, model=None, nc=1000, cutoff=10
-    ):  # yaml, model, number of classes, cutoff index
+    def __init__(self, cfg=None, model=None, nc=1000, cutoff=10):
+        """Initializes YOLOv5 model with config file `cfg`, input channels `ch`, number of classes `nc`, and `cuttoff`
+        index.
+        """
         super().__init__()
-        self._from_detection_model(
-            model, nc, cutoff
-        ) if model is not None else self._from_yaml(cfg)
+        self._from_detection_model(model, nc, cutoff) if model is not None else self._from_yaml(cfg)
 
     def _from_detection_model(self, model, nc=1000, cutoff=10):
-        # Create a YOLOv5 classification model from a YOLOv5 detection model
+        """Creates a classification model from a YOLOv5 detection model, slicing at `cutoff` and adding a classification
+        layer.
+        """
         if isinstance(model, DetectMultiBackend):
             model = model.model  # unwrap DetectMultiBackend
         model.model = model.model[:cutoff]  # backbone
         m = model.model[-1]  # last layer
-        ch = (
-            m.conv.in_channels if hasattr(m, "conv") else m.cv1.conv.in_channels
-        )  # ch into module
+        ch = m.conv.in_channels if hasattr(m, "conv") else m.cv1.conv.in_channels  # ch into module
         c = Classify(ch, nc)  # Classify()
         c.i, c.f, c.type = m.i, m.f, "models.common.Classify"  # index, from, type
         model.model[-1] = c  # replace
@@ -428,15 +390,13 @@ class ClassificationModel(BaseModel):
         self.nc = nc
 
     def _from_yaml(self, cfg):
-        # Create a YOLOv5 classification model from a *.yaml file
+        """Creates a YOLOv5 classification model from a specified *.yaml configuration file."""
         self.model = None
 
 
-def parse_model(d, ch):  # model_dict, input_channels(3)
-    # Parse a YOLOv5 model.yaml dictionary
-    LOGGER.info(
-        f"\n{'':>3}{'from':>18}{'n':>3}{'params':>10}  {'module':<40}{'arguments':<30}"
-    )
+def parse_model(d, ch):
+    """Parses a YOLOv5 model from a dict `d`, configuring layers based on input channels `ch` and model architecture."""
+    LOGGER.info(f"\n{'':>3}{'from':>18}{'n':>3}{'params':>10}  {'module':<40}{'arguments':<30}")
     anchors, nc, gd, gw, act, ch_mul = (
         d["anchors"],
         d["nc"],
@@ -446,15 +406,11 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         d.get("channel_multiple"),
     )
     if act:
-        Conv.default_act = eval(
-            act
-        )  # redefine default activation, i.e. Conv.default_act = nn.SiLU()
+        Conv.default_act = eval(act)  # redefine default activation, i.e. Conv.default_act = nn.SiLU()
         LOGGER.info(f"{colorstr('activation:')} {act}")  # print
     if not ch_mul:
         ch_mul = 8
-    na = (
-        (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors
-    )  # number of anchors
+    na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  # number of anchors
     no = na * (nc + 5)  # number of outputs = anchors * (classes + 5)
 
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
@@ -463,48 +419,116 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         d["backbone"] + d["head"]
     ):  # from, number, module, args
         t = m
-        m = eval(m) if isinstance(m, str) else m  # eval strings
+        try:
+            m = eval(m) if isinstance(m, str) else m  # eval strings
+        except:
+            pass
         for j, a in enumerate(args):
             with contextlib.suppress(NameError):
                 args[j] = eval(a) if isinstance(a, str) else a  # eval strings
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
-            Conv,
-            GhostConv,
-            Bottleneck,
-            GhostBottleneck,
-            SPP,
-            SPPF,
-            DWConv,
-            MixConv2d,
-            Focus,
-            CrossConv,
-            BottleneckCSP,
-            C3,
-            C3TR,
-            C3SPP,
-            C3Ghost,
-            nn.ConvTranspose2d,
-            DWConvTranspose2d,
-            C3x,
-            SimSPPF,
-            ASPP,
-            RFB,
-            SPPCSPC,
-            SPPCSPC_group,
-            SimCSPSPPF,
+            Conv,GhostConv,Bottleneck,GhostBottleneck,SPP,SPPF,DWConv,MixConv2d,Focus,CrossConv,BottleneckCSP,C3,C3TR,C3SPP,C3Ghost, nn.ConvTranspose2d,DWConvTranspose2d,C3x,SimSPPF,ASPP,RFB,SPPCSPC,SimCSPSPPF,C2f,SPPF_LSKA,HWD,RepBlock,CSPStage,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C2f_KW,C3_KW,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,RepNCSPELAN4,DPBlock,ES_Bottleneck,Dense,conv_bn_relu_maxpool,Shuffle_Block,conv_bn_act,SEAM,MultiSEAM,RFEM,RepConv,CSP_EDLAN,BepC3,RepVGGBlock,DiverseBranchBlock,C3_Star,C2f_Star,C2fCIB,PSA,SCDown
         }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = make_divisible(c2 * gw, ch_mul)
+            
+            
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x}:
+            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x,C2f,CSPStage,RepBlock,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,SEAM,MultiSEAM,BepC3,C3_Star,C2f_Star,C2fCIB}:
                 args.insert(2, n)  # number of repeats
                 n = 1
+                
+            if m is RepNCSPELAN4:
+                args[2] = make_divisible(args[2]* gw, ch_mul)
+                args[3] = make_divisible(args[3]* gw, ch_mul)
+                args.insert(2, n)
+                n=1
+                
+        
+        elif m in [DSLK]:
+            c1, c2 = ch[f], args[0]
+            if c2 != no:  # if not outputss
+                c2 = make_divisible(c2 * gw, 8)
+            args = [c1, c2, *args[1:]]
+            args.insert(2, n)  # number of repeats
+            n = 1
+                
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
+        
+        elif m is ContextGuidedBlock_Down:
+            c2 = ch[f] * 2
+            args = [ch[f], c2, *args]
+        
+        elif m in [DoubleAttention,BAMBlock,CBAM, SpatialAttention, ChannelAttention,EfficientChannelAttention,CoordAtt,CoTAttention,EffectiveSEModule,EMA,GAM_Attention,GlobalContext,GatherExcite,LSKblock,MHSA,MLCA,ParNetAttention,S2Attention,SequentialPolarizedSelfAttention,ShuffleAttention,SKAttention,FocalModulation,DySample,CARAFE,ChannelAttention_HSFPN,CrissCrossAttention]:
+            c2 = ch[f]
+            args = [c2,*args]
+        
+        elif m is SDI:
+            args = [[ch[x] for x in f]]
+  
+        # --------------ASF--------------
+        elif m is asf_attention_model:
+            args = [ch[f[-1]]]
+        elif m is Zoom_cat:
+            c2 = sum(ch[x] for x in f)
+        elif m in {ScalSeq, }:
+            c1 = [ch[x] for x in f]
+            c2 = make_divisible(args[0] * gw, ch_mul)
+            args = [c1, c2]
+        elif m is Multiply:
+            c2 = ch[f[0]]
+        elif m is Add:
+            c2 = ch[f[-1]]
+        #-----------------END------------
+        #---------------v5lite-----------
+        elif m in {DWConvblock,CBH,LC_Block}:
+            c1, c2 = ch[f], args[0]
+            args = [c1, c2, *args[1:]]
+        #-----------------END------------
+        # --------------GOLD-YOLO--------------
+        elif m in { AdvPoolFusion,SimFusion_4in,PyramidPoolAgg}:
+            c2 = sum(ch[x] for x in f)
+        elif m is SimFusion_3in:
+            c1 = ch[f[-2]]
+            c2 = ch[f[-1]]
+            args=[c1,c2]
+        elif m in {IFM,TopBasicLayer}:
+            c1 = ch[f]
+            c2_list = [make_divisible(args[0][0] * gw, ch_mul),make_divisible(args[0][1] * gw, ch_mul)]
+            c2 = sum(c2_list)
+            args = [c1, c2_list,*args[1:]]
+        elif m is InjectionMultiSum_Auto_pool:
+            c1 = ch[f[0]]
+            c2 = args[0]
+            c2 = make_divisible(c2 * gw, ch_mul)
+            c3 = [make_divisible(args[1][0] * gw, ch_mul),make_divisible(args[1][1] * gw, ch_mul)]
+            args = [c1, c2, c3, *args[2:]]
+        # elif m is TopBasicLayer:
+        #     args = [ch[f],*args]
+        # --------------GOLD-YOLO--------------
+        elif m in {ASFF_2, ASFF_3}:
+            c2 = args[0]
+            if c2 != no:  # if not output
+                c2 = make_divisible(c2 * gw, 8)
+            args[0] = c2
+            args.append([ch[x] for x in f])
+
+        elif m is BiFusion:
+            c1 = [ch[x] for x in f]
+            c2 = make_divisible(args[0] *gw, ch_mul)
+            args = [c1, c2]
+        
+        elif m is ADD:
+            c2 = sum([ch[x] for x in f])//2
+            
+        #直接输入参数args
+        elif m in [SpatialGroupEnhance,SimAM,TripletAttention]:
+            args = args
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
         # TODO: channel, gw, gd
@@ -518,45 +542,49 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             c2 = ch[f] * args[0] ** 2
         elif m is Expand:
             c2 = ch[f] // args[0] ** 2
+        
+        elif m in (HGStem,Rep_HGBlock):
+            c1, cm, c2 = ch[f], args[0], args[1]
+            if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
+                c2 = make_divisible(c2*gw, ch_mul)
+                cm = make_divisible(cm*gw, ch_mul)
+            args = [c1, cm, c2, *args[2:]]
+            if m in (Rep_HGBlock,):
+                args.insert(4, n)  # number of repeats
+                n = 1
 
-        elif m in (
-            MobileNetV3s_1,
-            MobileNetV3s_2,
-            MobileNetV3s_3,
-            efficientnet_b0_1,
-            efficientnet_b0_2,
-            efficientnet_b0_3,
-            RegNety400_1,
-            RegNety400_2,
-            RegNety400_3,
-            resnet18_1,
-            resnet18_2,
-            resnet18_3,
-            resnet34_1,
-            resnet34_2,
-            resnet34_3,
-            resnet50_1,
-            resnet50_2,
-            resnet50_3,
-            efficientnet_v2_s_1,
-            efficientnet_v2_s_2,
-            efficientnet_v2_s_3,
-            efficientnet_b1_1,
-            efficientnet_b1_2,
-            efficientnet_b1_3,
-            mobilenet_v2_1,
-            mobilenet_v2_2,
-            mobilenet_v2_3,
-            wide_resnet50_2_1,
-        ):
-            c2 = args[0]
-        elif m in [fasternet_t0, lsknet_t, convnextv2_atto,EfficientViT_M0,efficientformerv2_s0]:
+        elif isinstance(m, str):
+            import timm
+            t = m
+            if len(args) == 2:        
+                m = timm.create_model(m, pretrained=args[0], pretrained_cfg_overlay={'file':args[1]}, features_only=True)
+            elif len(args) == 1:
+                m = timm.create_model(m, pretrained=args[0], features_only=True)
+            c2 = m.feature_info.channels()
+        elif m in [
+            fasternet_t0,
+            lsknet_t,
+            convnextv2_atto,
+            EfficientViT_M0,
+            efficientformerv2_s0,
+            focalnet_tiny_srf,
+            nextvit_small,
+            poolformer_s12,
+            EMO_1M,
+            unireplknet_a,
+            nextvit_small,
+            vanillanet_10,
+            inceptionnext_tiny,
+            CSWin_tiny,
+            shufflenet_v2_x0_5,
+            starnet_s050,
+        ]:
             m = m(*args)
             c2 = m.channel
             is_backbone = True
         else:
             c2 = ch[f]
-            
+
         if isinstance(c2, list):
             is_backbone = True
             m_ = m
@@ -577,7 +605,9 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             f"{i:>3}{str(f):>18}{n_:>3}{np:10.0f}  {t:<40}{str(args):<30}"
         )  # print
         save.extend(
-            x % (i + 4 if is_backbone else i) for x in ([f] if isinstance(f, int) else f) if x != -1
+            x % (i + 4 if is_backbone else i)
+            for x in ([f] if isinstance(f, int) else f)
+            if x != -1
         )  # append to savelist
         layers.append(m_)
         if i == 0:
@@ -594,16 +624,10 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg", type=str, default="yolov5s.yaml", help="model.yaml")
-    parser.add_argument(
-        "--batch-size", type=int, default=1, help="total batch size for all GPUs"
-    )
-    parser.add_argument(
-        "--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
-    )
+    parser.add_argument("--batch-size", type=int, default=1, help="total batch size for all GPUs")
+    parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--profile", action="store_true", help="profile model speed")
-    parser.add_argument(
-        "--line-profile", action="store_true", help="profile model speed layer by layer"
-    )
+    parser.add_argument("--line-profile", action="store_true", help="profile model speed layer by layer")
     parser.add_argument("--test", action="store_true", help="test all yolo*.yaml")
     opt = parser.parse_args()
     opt.cfg = check_yaml(opt.cfg)  # check YAML

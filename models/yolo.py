@@ -210,14 +210,8 @@ class BaseModel(nn.Module):
                 m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
                 delattr(m, "bn")  # remove batchnorm
                 m.forward = m.forward_fuse  # update forward
-            elif isinstance(m, RepConv):
-                m.fuse_convs()
-                m.forward = m.forward_fuse
-            elif isinstance(m, DiverseBranchBlock)or isinstance(m, RepVGGBlock):
-                m.switch_to_deploy()
-            if isinstance(m, (Shuffle_Block,RepVGGDW)):
+            elif isinstance(m, (RepConv,DiverseBranchBlock,RepVGGBlock,Shuffle_Block,RepVGGDW)):
                 m.fuse()
-
 
         self.info()
         return self
@@ -633,7 +627,7 @@ def parse_model(d, ch):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg", type=str, default="yolov5s.yaml", help="model.yaml")
-    parser.add_argument("--batch-size", type=int, default=2, help="total batch size for all GPUs")
+    parser.add_argument("--batch-size", type=int, default=1, help="total batch size for all GPUs")
     parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--profile", action="store_true", help="profile model speed")
     parser.add_argument("--line-profile", action="store_true", help="profile model speed layer by layer")
@@ -655,7 +649,7 @@ if __name__ == "__main__":
         results = profile(input=im, ops=[model], n=3)
 
     elif opt.test:  # test all models
-        for cfg in Path(r"E:\project\code\yolov5\models\extra_module\cfg\resize").rglob("yolo*.yaml"):
+        for cfg in Path(ROOT / "models").rglob("yolo*.yaml"):
             try:
                 _ = Model(cfg)
             except Exception as e:
