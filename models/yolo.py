@@ -450,11 +450,7 @@ def parse_model(d, ch):
             if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x,C2f,CSPStage,RepBlock,RCSOSA,C3_Faster,C2f_Faster,C2f_ODConv,C3_ODConv,C2f_DBB,C3_DBB,VoVGSCSP,C2f_SCConv,C3_SCConv,C3_ScConv,C2f_ScConv,C3_EMSC,C3_EMSCP,C2f_EMSC,C2f_EMSCP,C3_DySnakeConv,C2f_DySnakeConv,C2f_DCNv2,C3_DCNv2,C2f_OREPA,C3_OREPA,C3_REPVGGOREPA,C2f_REPVGGOREPA,C3_ContextGuided,C2f_ContextGuided,C2f_MSBlock,C3_MSBlock,C3_DLKA,C2f_DLKA,C3_Parc, C2f_Parc,C3_DWR,C2f_DWR,C3_RFCBAMConv,C3_RFCAConv,C2f_RFCBAMConv,C2f_RFCAConv,C3_AKConv,C2f_AKConv,SEAM,MultiSEAM,BepC3,C3_Star,C2f_Star,C2fCIB,C3k2}:
                 args.insert(2, n)  # number of repeats
                 n = 1
-            if m is C3k2:  # for M/L/X sizes
-                ...
-            #     legacy = False
-            #     if scale in "mlx":
-            #         args[3] = True
+
                     
             if m is RepNCSPELAN4:
                 args[2] = make_divisible(args[2]* gw, ch_mul)
@@ -478,7 +474,7 @@ def parse_model(d, ch):
             c2 = ch[f] * 2
             args = [ch[f], c2, *args]
         
-        elif m in [DoubleAttention,BAMBlock,CBAM, SpatialAttention, ChannelAttention,EfficientChannelAttention,CoordAtt,CoTAttention,EffectiveSEModule,EMA,GAM_Attention,GlobalContext,GatherExcite,LSKblock,MHSA,MLCA,ParNetAttention,S2Attention,SequentialPolarizedSelfAttention,ShuffleAttention,SKAttention,FocalModulation,DySample,CARAFE,ChannelAttention_HSFPN,CrissCrossAttention,C3k2]:
+        elif m in [DoubleAttention,BAMBlock,CBAM, SpatialAttention, ChannelAttention,EfficientChannelAttention,CoordAtt,CoTAttention,EffectiveSEModule,EMA,GAM_Attention,GlobalContext,GatherExcite,LSKblock,MHSA,MLCA,ParNetAttention,S2Attention,SequentialPolarizedSelfAttention,ShuffleAttention,SKAttention,FocalModulation,DySample,CARAFE,ChannelAttention_HSFPN,CrissCrossAttention]:
             c2 = ch[f]
             args = [c2,*args]
         
