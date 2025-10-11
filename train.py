@@ -43,7 +43,7 @@ ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-import yolov8.val as yolov8validate
+
 from ultralytics.utils.patches import torch_load
 
 import val as validate  # for end-of-epoch mAP
@@ -82,7 +82,6 @@ from utils.general import (
 )
 from utils.loggers import LOGGERS, Loggers
 from utils.loggers.comet.comet_utils import check_comet_resume
-from yolov8.loss import v8DetectionLoss 
 from utils.loss import ComputeLoss
 from utils.loss import ComputeLossOTA
 from utils.metrics import fitness
@@ -219,10 +218,7 @@ def train(hyp, opt, device, callbacks):
         ckpt = torch_load(weights, map_location="cpu")  # load checkpoint to CPU to avoid CUDA memory leak
         model = Model(cfg or ckpt["model"].yaml, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
         exclude = ["anchor"] if (cfg or hyp.get("anchors")) and not resume else []  # exclude keys
-        if "model" in ckpt:
-            csd = ckpt["model"].float().state_dict()  # checkpoint state_dict as FP32
-        else:
-            csd= ckpt
+        csd = ckpt["model"].float().state_dict()  # checkpoint state_dict as FP32
         csd = intersect_dicts(csd, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(csd, strict=False)  # load
         LOGGER.info(f"Transferred {len(csd)}/{len(model.state_dict())} items from {weights}")  # report
@@ -361,15 +357,7 @@ def train(hyp, opt, device, callbacks):
     scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = torch.cuda.amp.GradScaler(enabled=amp)
     stopper, stop = EarlyStopping(patience=opt.patience), False
-    if model.loss_category is None:
-        compute_loss = ComputeLoss(model)  # init loss class   
-    elif model.loss_category=='v8DetectionLoss':    
-        compute_loss = v8DetectionLoss(model)
-        validate = yolov8validate
-    else:
-        raise NotImplementedError
-    
-    
+    compute_loss = ComputeLoss(model)  # init loss class
     if opt.OTALoss:
         compute_OTAloss = ComputeLossOTA(model)
     callbacks.run("on_train_start")
@@ -597,7 +585,7 @@ def parse_opt(known=False):
     parser.add_argument("--resume", nargs="?", const=True, default=False, help="resume most recent training")
     parser.add_argument("--nosave", action="store_true", help="only save final checkpoint")
     parser.add_argument("--noval", action="store_true", help="only validate final epoch")
-    parser.add_argument("--noautoanchor", action="store_false", help="enable AutoAnchor")
+    parser.add_argument("--noautoanchor", action="store_true", help="disable AutoAnchor")
     parser.add_argument("--noplots", action="store_true", help="save no plot files")
     parser.add_argument("--evolve", type=int, nargs="?", const=300, help="evolve hyperparameters for x generations")
     parser.add_argument(

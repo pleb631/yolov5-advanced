@@ -265,7 +265,6 @@ class DetectionModel(BaseModel):
         self.names = [str(i) for i in range(self.yaml["nc"])]  # default names
         self.inplace = self.yaml.get("inplace", True)
         
-        self.loss_category = self.yaml.get('loss', None)
         
         # Build strides, anchors
         m = self.model[-1]  # Detect()

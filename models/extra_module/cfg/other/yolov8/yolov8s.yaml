@@ -5,7 +5,7 @@ nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
 width_multiple: 0.50  # layer channel multiple
 anchors: 0
-loss: v8DetectionLoss
+
 # YOLOv8 v8.1 backbone
 backbone:
   # [from, number, module, args]
