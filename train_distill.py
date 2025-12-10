@@ -82,8 +82,8 @@ from utils.general import (
 )
 from utils.loggers import LOGGERS, Loggers
 from utils.loggers.comet.comet_utils import check_comet_resume
-from utils.loss import ComputeLoss
-from utils.loss import ComputeLossOTA
+from utils.loss import ComputeLoss, ComputeLossOTA
+from utils.distill_loss import LogicalLoss, FeatureLoss
 from utils.metrics import fitness
 from utils.plots import plot_evolve
 from utils.torch_utils import (
@@ -160,9 +160,9 @@ def train(hyp, opt, device, callbacks):
     last, best = w / "last.pt", w / "best.pt"
 
     # Hyperparameters
-    if isinstance(hyp, str):
-        with open(hyp, errors="ignore") as f:
-            hyp = yaml.safe_load(f)  # load hyps dict
+    # if isinstance(hyp, str):
+    with open(hyp, errors="ignore") as f:
+        hyp = yaml.safe_load(f)  # load hyps dict
     LOGGER.info(colorstr("hyperparameters: ") + ", ".join(f"{k}={v}" for k, v in hyp.items()))
     opt.hyp = hyp.copy()  # for saving hyps to checkpoints
 
@@ -209,10 +209,20 @@ def train(hyp, opt, device, callbacks):
     names = {0: "item"} if single_cls and len(data_dict["names"]) != 1 else data_dict["names"]  # class names
     is_coco = isinstance(val_path, str) and val_path.endswith("coco/val2017.txt")  # COCO dataset
 
-    # Model
+    # Model For Student
     check_suffix(weights, ".pt")  # check weights
     pretrained = weights.endswith(".pt")
-    if pretrained:
+    if opt.prune_model:
+        # model = attempt_load(weights, device=device, inplace=False, fuse=False)
+        model = torch.load(weights, map_location=device)
+        if model["ema"]:
+           model = model["ema"].float()
+        else:
+            model = model["model"].float()
+        for p in model.parameters():
+            p.requires_grad_(True)
+        LOGGER.info(f"Loaded {weights}")  # report
+    elif pretrained:
         with torch_distributed_zero_first(LOCAL_RANK):
             weights = attempt_download(weights)  # download if not found locally
         ckpt = torch_load(weights, map_location="cpu")  # load checkpoint to CPU to avoid CUDA memory leak
@@ -221,10 +231,19 @@ def train(hyp, opt, device, callbacks):
         csd = ckpt["model"].float().state_dict()  # checkpoint state_dict as FP32
         csd = intersect_dicts(csd, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(csd, strict=False)  # load
-        LOGGER.info(f"Transferred {len(csd)}/{len(model.state_dict())} items from {weights}")  # report
+        LOGGER.info(f"Student Transferred {len(csd)}/{len(model.state_dict())} items from {weights}")  # report
     else:
         model = Model(cfg, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
     amp = check_amp(model)  # check AMP
+    
+    # Model For Teacher
+    ckpt = torch_load(opt.teacher_weights, map_location="cpu")  # load checkpoint to CPU to avoid CUDA memory leak
+    t_model = Model(opt.teacher_cfg or ckpt["model"].yaml, ch=3, nc=nc, anchors=hyp.get("anchors")).to(device)  # create
+    exclude = ["anchor"] if (cfg or hyp.get("anchors")) and not resume else []  # exclude keys
+    csd = ckpt["model"].float().state_dict()  # checkpoint state_dict as FP32
+    csd = intersect_dicts(csd, t_model.state_dict(), exclude=exclude)  # intersect
+    t_model.load_state_dict(csd, strict=False)  # load
+    LOGGER.info(f"Teacher Transferred {len(csd)}/{len(t_model.state_dict())} items from {opt.teacher_weights}")  # report
 
     # Freeze
     freeze = [f"model.{x}." for x in (freeze if len(freeze) > 1 else range(freeze[0]))]  # layers to freeze
@@ -244,11 +263,47 @@ def train(hyp, opt, device, callbacks):
         batch_size = check_train_batch_size(model, imgsz, amp)
         loggers.on_params_update({"batch_size": batch_size})
 
+    # Init Distill Loss
+    kd_logical_loss, kd_feature_loss = None, None
+    if opt.kd_loss_type == "logical" or opt.kd_loss_type == "all":
+        kd_logical_loss = LogicalLoss(hyp, model, opt.logical_loss_type)
+    if opt.kd_loss_type == "feature" or opt.kd_loss_type == "all":
+        s_feature, t_feature = [], []
+        def get_activation(feat, backbone_idx=-1):
+            def hook(model, inputs, outputs):
+                if backbone_idx != -1:
+                    for idx, i in enumerate(outputs): print(idx, i.size())
+                    feat.append(outputs[backbone_idx])
+                else:
+                    feat.append(outputs)
+            return hook
+        hooks = []
+        teacher_kd_layers, student_kd_layers = opt.teacher_kd_layers.split(","), opt.student_kd_layers.split(",")
+        for t_layer, s_layer in zip(teacher_kd_layers, student_kd_layers):
+            if "-" in t_layer:
+                t_layer_first, t_layer_second = t_layer.split("-")
+                hooks.append(de_parallel(t_model).model[int(t_layer_first)].register_forward_hook(get_activation(t_feature, backbone_idx=int(t_layer_second))))
+            else:
+                hooks.append(de_parallel(t_model).model[int(t_layer)].register_forward_hook(get_activation(t_feature)))
+            
+            if "-" in s_layer:
+                s_layer_first, s_layer_second = s_layer.split("-")
+                hooks.append(de_parallel(model).model[int(s_layer_first)].register_forward_hook(get_activation(s_feature, backbone_idx=int(s_layer_second))))
+            else:
+                hooks.append(de_parallel(model).model[int(s_layer)].register_forward_hook(get_activation(s_feature)))
+        inputs = torch.randn((2, 3, opt.imgsz, opt.imgsz)).to(device)
+        with torch.no_grad():
+            _ = t_model(inputs)
+            _ = model(inputs)
+        kd_feature_loss = FeatureLoss([i.size(1) for i in s_feature], [i.size(1) for i in t_feature], distiller=opt.feature_loss_type)
+        for hook in hooks:
+            hook.remove()
+    
     # Optimizer
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
     hyp["weight_decay"] *= batch_size * accumulate / nbs  # scale weight_decay
-    optimizer = smart_optimizer(model, opt.optimizer, hyp["lr0"], hyp["momentum"], hyp["weight_decay"])
+    optimizer = smart_optimizer(model, opt.optimizer, hyp["lr0"], hyp["momentum"], hyp["weight_decay"], kd_feature_loss if isinstance(kd_feature_loss, FeatureLoss) else None)
 
     # Scheduler
     if opt.cos_lr:
@@ -358,8 +413,7 @@ def train(hyp, opt, device, callbacks):
     scaler = torch.cuda.amp.GradScaler(enabled=amp)
     stopper, stop = EarlyStopping(patience=opt.patience), False
     compute_loss = ComputeLoss(model)  # init loss class
-    if opt.OTALoss:
-        compute_OTAloss = ComputeLossOTA(model)
+    compute_loss_ota = ComputeLossOTA(model) # init ota loss class
     callbacks.run("on_train_start")
     LOGGER.info(
         f"Image sizes {imgsz} train, {imgsz} val\n"
@@ -370,7 +424,24 @@ def train(hyp, opt, device, callbacks):
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         callbacks.run("on_train_epoch_start")
         model.train()
-
+        
+        if opt.kd_loss_type in ["feature", "all"]:
+            kd_feature_loss.train()
+            hooks = []
+            s_feature, t_feature = [], []
+            for t_layer, s_layer in zip(teacher_kd_layers, student_kd_layers):
+                if "-" in t_layer:
+                    t_layer_first, t_layer_second = t_layer.split("-")
+                    hooks.append(de_parallel(t_model).model[int(t_layer_first)].register_forward_hook(get_activation(t_feature, backbone_idx=int(t_layer_second))))
+                else:
+                    hooks.append(de_parallel(t_model).model[int(t_layer)].register_forward_hook(get_activation(t_feature)))
+                
+                if "-" in s_layer:
+                    s_layer_first, s_layer_second = s_layer.split("-")
+                    hooks.append(de_parallel(model).model[int(s_layer_first)].register_forward_hook(get_activation(s_feature, backbone_idx=int(s_layer_second))))
+                else:
+                    hooks.append(de_parallel(model).model[int(s_layer)].register_forward_hook(get_activation(s_feature)))
+            
         # Update image weights (optional, single-GPU only)
         if opt.image_weights:
             cw = model.class_weights.cpu().numpy() * (1 - maps) ** 2 / nc  # class weights
@@ -381,7 +452,7 @@ def train(hyp, opt, device, callbacks):
         # b = int(random.uniform(0.25 * imgsz, 0.75 * imgsz + gs) // gs * gs)
         # dataset.mosaic_border = [b - imgsz, -b]  # height, width borders
 
-        mloss = torch.zeros(3, device=device)  # mean losses
+        mloss, logical_disloss, feature_disloss = torch.zeros(3, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)  # mean losses
         if RANK != -1:
             train_loader.sampler.set_epoch(epoch)
         pbar = enumerate(train_loader)
@@ -412,16 +483,40 @@ def train(hyp, opt, device, callbacks):
                 if sf != 1:
                     ns = [math.ceil(x * sf / gs) * gs for x in imgs.shape[2:]]  # new shape (stretched to gs-multiple)
                     imgs = nn.functional.interpolate(imgs, size=ns, mode="bilinear", align_corners=False)
-
+            
+            if opt.kd_loss_decay == "constant":
+                distill_decay = 1.0
+            elif opt.kd_loss_decay == "cosine":
+                eta_min, base_ratio, T_max = 0.01, 1.0, 10
+                distill_decay = eta_min + (base_ratio - eta_min) * (1 + math.cos(math.pi * i / T_max)) / 2
+            elif opt.kd_loss_decay == "linear":
+                distill_decay = ((1 - math.cos(i * math.pi / len(train_loader))) / 2) * (0.01 - 1) + 1
+            elif opt.kd_loss_decay == "cosine_epoch":
+                eta_min, base_ratio, T_max = 0.01, 1.0, 10
+                distill_decay = eta_min + (base_ratio - eta_min) * (1 + math.cos(math.pi * ni / T_max)) / 2
+            elif opt.kd_loss_decay == "linear_epoch":
+                distill_decay = ((1 - math.cos(ni * math.pi / (epochs * nb))) / 2) * (0.01 - 1) + 1
+            
             # Forward
             with torch.cuda.amp.autocast(amp):
-                pred = model(imgs)  # forward
-                if opt.OTALoss:
-                    loss, loss_items = compute_OTAloss(pred, targets.to(device), imgs)  # loss scaled by batch_size
+                pred = model(imgs)
+                    
+                with torch.no_grad():
+                    t_pred = t_model(imgs)
+
+                # Loss For Student Model
+                if "loss_ota" in hyp and hyp["loss_ota"] == 1:
+                    loss, loss_items = compute_loss_ota(pred, targets.to(device), imgs)  # loss scaled by batch_size
                 else:
                     loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
                 
-
+                log_distill_loss, fea_distill_loss = torch.zeros(1, device=device), torch.zeros(1, device=device)
+                if kd_logical_loss is not None:
+                    log_distill_loss = kd_logical_loss(pred, t_pred) * opt.logical_loss_ratio
+                if kd_feature_loss is not None:
+                    fea_distill_loss = kd_feature_loss(s_feature, t_feature) * opt.feature_loss_ratio
+                
+                loss += (log_distill_loss + fea_distill_loss) * imgs.size(0) * distill_decay
                 if RANK != -1:
                     loss *= WORLD_SIZE  # gradient averaged between devices in DDP mode
                 if opt.quad:
@@ -444,16 +539,24 @@ def train(hyp, opt, device, callbacks):
             # Log
             if RANK in {-1, 0}:
                 mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
+                logical_disloss = (logical_disloss * i + log_distill_loss.detach()) / (i + 1)  # update mean losses
+                feature_disloss = (feature_disloss * i + fea_distill_loss.detach()) / (i + 1)  # update mean losses
+
                 mem = f"{torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
-                pbar.set_description(
-                    ("%11s" * 2 + "%11.4g" * 5)
-                    % (f"{epoch}/{epochs - 1}", mem, *mloss, targets.shape[0], imgs.shape[-1])
-                )
+                pbar.set_description(("%15s" * 2 + "%15.4g" * 7) %
+                                     (f"{epoch}/{epochs - 1}", mem, *mloss, logical_disloss, feature_disloss, targets.shape[0], imgs.shape[-1]))
                 callbacks.run("on_train_batch_end", model, ni, imgs, targets, paths, list(mloss))
                 if callbacks.stop_training:
                     return
+            if kd_feature_loss is not None:
+                s_feature.clear()
+                t_feature.clear()
             # end batch ------------------------------------------------------------------------------------------------
 
+        if kd_feature_loss is not None:
+            for hook in hooks:
+                hook.remove()
+        
         # Scheduler
         lr = [x["lr"] for x in optimizer.param_groups]  # for loggers
         scheduler.step()
@@ -587,10 +690,6 @@ def parse_opt(known=False):
     parser.add_argument("--noautoanchor", action="store_true", help="disable AutoAnchor")
     parser.add_argument("--noplots", action="store_true", help="save no plot files")
     parser.add_argument("--evolve", type=int, nargs="?", const=300, help="evolve hyperparameters for x generations")
-    parser.add_argument(
-        "--evolve_population", type=str, default=ROOT / "data/hyps", help="location for loading population"
-    )
-    parser.add_argument("--resume_evolve", type=str, default=None, help="resume evolve from last generation")
     parser.add_argument("--bucket", type=str, default="", help="gsutil bucket")
     parser.add_argument("--cache", type=str, nargs="?", const="ram", help="image --cache ram/disk")
     parser.add_argument("--image-weights", action="store_true", help="use weighted image selection for training")
@@ -605,7 +704,6 @@ def parse_opt(known=False):
     parser.add_argument("--exist-ok", action="store_true", help="existing project/name ok, do not increment")
     parser.add_argument("--quad", action="store_true", help="quad dataloader")
     parser.add_argument("--cos-lr", action="store_true", help="cosine LR scheduler")
-    parser.add_argument("--OTALoss", action="store_true", help="Use Optimal Transport Assignment loss")
     parser.add_argument("--label-smoothing", type=float, default=0.0, help="Label smoothing epsilon")
     parser.add_argument("--patience", type=int, default=100, help="EarlyStopping patience (epochs without improvement)")
     parser.add_argument("--freeze", nargs="+", type=int, default=[0], help="Freeze layers: backbone=10, first3=0 1 2")
@@ -618,10 +716,25 @@ def parse_opt(known=False):
     parser.add_argument("--upload_dataset", nargs="?", const=True, default=False, help='Upload data, "val" option')
     parser.add_argument("--bbox_interval", type=int, default=-1, help="Set bounding-box image logging interval")
     parser.add_argument("--artifact_alias", type=str, default="latest", help="Version of dataset artifact to use")
-
-    # NDJSON logging
-    parser.add_argument("--ndjson-console", action="store_true", help="Log ndjson to console")
-    parser.add_argument("--ndjson-file", action="store_true", help="Log ndjson to file")
+    
+    # Prune
+    parser.add_argument("--prune_model", action="store_true", help="is prune model?")
+    
+    # knowledge distillation arguments
+    parser.add_argument("--teacher_weights", type=str, default="yolov5n.pt", help="initial weights path (teacher)")
+    parser.add_argument("--teacher_cfg", type=str, default="yolov5n.yaml", help="initial model.yaml path (teacher)")
+    parser.add_argument("--kd_loss_type", type=str, default="feature", choices=["logical", "feature", "all"], help="kd loss type")
+    parser.add_argument("--kd_loss_decay", type=str, default="constant", choices=["cosine", "linear", "cosine_epoch", "linear_epoch", "constant"], help="kd loss decay")
+    
+    # logical distillation arguments
+    parser.add_argument("--logical_loss_type", type=str, default="l2", choices=["l2", "l1", "AlignSoftTarget"], help="logical loss type in kd_loss")
+    parser.add_argument("--logical_loss_ratio", type=float, default=1.0, help="logical loss ratio")
+    
+    # feature distillation arguments
+    parser.add_argument("--teacher_kd_layers", type=str, default="17,20,23", help="Teahcer Layer for Feature knowledge distillation")
+    parser.add_argument("--student_kd_layers", type=str, default="17,20,23", help="Student Layer for Feature knowledge distillation")
+    parser.add_argument("--feature_loss_type", type=str, default="cwd", choices=["mimic", "cwd", "mgd", "chsim", "sp"], help="feature loss type in kd_loss")
+    parser.add_argument("--feature_loss_ratio", type=float, default=1.0, help="feature loss ratio")
 
     return parser.parse_known_args()[0] if known else parser.parse_args()
 
