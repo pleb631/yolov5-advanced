@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.utils.checkpoint as checkpoint
 from einops import rearrange
-from timm.models.layers import DropPath, trunc_normal_
+from timm.layers import DropPath, trunc_normal_
 from torch import nn
 
 __all__ = ['nextvit_small', 'nextvit_base', 'nextvit_large']

@@ -1,4 +1,4 @@
-from timm.models.layers import DropPath
+from timm.layers import DropPath
 import torch
 import torch.nn as nn
 

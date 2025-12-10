@@ -11,7 +11,7 @@ import numpy as np
 
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.models import checkpoint_seq
-from timm.models.layers import trunc_normal_, DropPath, to_2tuple
+from timm.layers import trunc_normal_, DropPath, to_2tuple
 
 
 __all__ = ['inceptionnext_tiny', 'inceptionnext_small', 'inceptionnext_base', 'inceptionnext_base_384']

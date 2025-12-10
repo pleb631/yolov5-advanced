@@ -11,7 +11,7 @@ Modified Date: Mar/29/2024
 """
 import torch
 import torch.nn as nn
-from timm.models.layers import DropPath, trunc_normal_
+from timm.layers import DropPath, trunc_normal_
 
 __all__ = ['starnet_s050', 'starnet_s100', 'starnet_s150', 'starnet_s1', 'starnet_s2', 'starnet_s3', 'starnet_s4']
 

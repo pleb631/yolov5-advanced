@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 import itertools
 
-from timm.models.layers import SqueezeExcite
+from timm.layers import SqueezeExcite
 
 import numpy as np
 import itertools

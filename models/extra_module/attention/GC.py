@@ -1,10 +1,10 @@
 import torch
 from torch import nn as nn
 import torch.nn.functional as F
-from timm.models.layers import create_act_layer, get_act_layer
-from timm.models.layers import make_divisible
-from timm.models.layers import ConvMlp
-from timm.models.layers import LayerNorm2d
+from timm.layers import create_act_layer, get_act_layer
+from timm.layers import make_divisible
+from timm.layers import ConvMlp
+from timm.layers import LayerNorm2d
 
 
 class GlobalContext(nn.Module):

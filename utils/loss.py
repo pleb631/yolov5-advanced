@@ -618,6 +618,7 @@ class ComputeLossOTA:
                         lbox += (iou[0] * iou[1]).mean()
                         iou = iou[2]
                 else:
+                    iou = iou.squeeze()
                     lbox += (1.0 - iou).mean()  # iou loss
 
                 # Objectness

@@ -3,8 +3,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, reduce
-from timm.models.layers import *
-from timm.models.layers import DropPath, trunc_normal_
+from timm.layers import *
+from timm.layers import DropPath, trunc_normal_
 from timm.models.efficientnet import SqueezeExcite as SE
 from functools import partial
 import torch

@@ -1,6 +1,6 @@
 from models.common import *
 from models.extra_module.models.yolov8 import C2f
-from timm.models.layers import DropPath
+from timm.layers import DropPath
 import torch.nn as nn
 
 __all__=["C3_Star","C2f_Star"]
