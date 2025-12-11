@@ -456,7 +456,7 @@ def train(hyp, opt, device, callbacks):
         if RANK != -1:
             train_loader.sampler.set_epoch(epoch)
         pbar = enumerate(train_loader)
-        LOGGER.info(("\n" + "%11s" * 7) % ("Epoch", "GPU_mem", "box_loss", "obj_loss", "cls_loss", "Instances", "Size"))
+        LOGGER.info(('\n' + '%15s' * 9) % ('Epoch', 'GPU_mem', 'box_loss', 'obj_loss', 'cls_loss', 'log_loss', 'fea_loss', 'Instances', 'Size'))
         if RANK in {-1, 0}:
             pbar = tqdm(pbar, total=nb, bar_format=TQDM_BAR_FORMAT)  # progress bar
         optimizer.zero_grad()
@@ -498,7 +498,7 @@ def train(hyp, opt, device, callbacks):
                 distill_decay = ((1 - math.cos(ni * math.pi / (epochs * nb))) / 2) * (0.01 - 1) + 1
             
             # Forward
-            with torch.cuda.amp.autocast(amp):
+            with torch.amp.autocast("cuda", enabled=amp):
                 pred = model(imgs)
                     
                 with torch.no_grad():

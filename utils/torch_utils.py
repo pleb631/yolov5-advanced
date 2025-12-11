@@ -343,7 +343,7 @@ def copy_attr(a, b, include=(), exclude=()):
             setattr(a, k, v)
 
 
-def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5):
+def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5,feature_model=None):
     """Initializes YOLOv5 smart optimizer with 3 parameter groups for different decay configurations.
 
     Groups are 0) weights with decay, 1) weights no decay, 2) biases no decay.
@@ -358,6 +358,16 @@ def smart_optimizer(model, name="Adam", lr=0.001, momentum=0.9, decay=1e-5):
                 g[1].append(p)
             else:
                 g[0].append(p)  # weight (with decay)
+
+    if feature_model is not None:
+        for v in feature_model.modules():
+            for p_name, p in v.named_parameters(recurse=0):
+                if p_name == 'bias':  # bias (no decay)
+                    g[2].append(p)
+                elif p_name == 'weight' and isinstance(v, bn):  # weight (no decay)
+                    g[1].append(p)
+                else:
+                    g[0].append(p)  # weight (with decay)
 
     if name == "Adam":
         optimizer = torch.optim.Adam(g[2], lr=lr, betas=(momentum, 0.999))  # adjust beta1 to momentum

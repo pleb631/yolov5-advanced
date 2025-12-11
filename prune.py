@@ -235,7 +235,9 @@ def model_prune(opt, model, imp, prune, example_inputs, testloader, imgsz_test, 
         
         model.eval()
         iter_idx += 1
+        torch.use_deterministic_algorithms(False)
         prune.step(interactive=False)
+        torch.use_deterministic_algorithms(True)
         prune_result, _, _ = validate.run(
             data_dict, 
             None, 
